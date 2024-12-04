@@ -1,0 +1,16 @@
+convokit==3.0.0
+datasets
+detoxify
+matplotlib==3.9.0
+nltk
+numpy==1.26.4
+pandas
+sammo==0.1.7
+scikit-learn
+spacy
+spacy-transformers
+taaled==0.32
+textstat==0.7.3
+transformers
+ruamel.yaml==0.18.6
+
