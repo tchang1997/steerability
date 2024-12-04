@@ -1,17 +1,35 @@
-# Steerability Reporting
+# Measuring Steerability In LLMs
 
-This repository implements steerability probes and provides steerability reports for LLMs. It also provides the means to make your own steerability probes.
+This repository implements steerability probes and provides steerability reports for LLMs. It also provides the means to make your own steerability probes. This steerability evaluation is meant to evaluate the output-behavior of LLMs. It implements the steerability measurement framework introduced in ["Measuring Steerability in Large Language Models."](https://openreview.net/forum?id=y2J5dAqcJW)
 
-This steerability evaluation is meant to evaluate the output-behavior of LLMs. It is the official implementation of the steerability measurement framework introduced in ["Measuring Steerability in Large Language Models."](TODO)
+Note this is very early-stage work and will change in the future. This work was partially done as a research intern at Microsoft Research.
 
 ## Steerability Reports
 
-|Model|Prompt Strategy|Steerability Score|Sensitivity|Directionality|
+We design a steerability probe for comparing steerability across LLMs. In short, we define a vector-space of goals (goal-space) and model user requests and texts as vectors in goal-space. The LLM's behavior can then be thought of as a vector operation, and we can compare how the LLM's behavior vector matches with the user's request. Formally, steerability becomes a normalized dot product between "what we wanted" and "what we got." Our steerability metric is a real number, with the best value being 1. Check out [our paper](https://openreview.net/forum?id=y2J5dAqcJW) for a formal definition!
 
+|Model|Steerability|
+|-|-|
+|GPT-3.5|0.298±0.461|
+|GPT-4 turbo|0.344±0.470|
+|Llama3-8B|0.520±0.529|
+|Llama3-70B|0.521±0.511|
+|Mistral-7B|0.295±0.462|
+|Mixtral-8x7B|0.302±0.476|
 
-The error bar is the **standard deviation** taken over the empirical steerability probe (`steerbench.csv`). 
+The errors are the **standard deviation** taken over our empirical steerability probe (`steerbench_converted.csv`). 
 
 Have a suggestion for a model for us to try? Would you like to submit your own model for evaluation? Let us know at `ctrenton` at `umich` dot `edu`! 
+
+## Generating steerability reports
+
+You can use the same steerability probe that we've created out of the box at `data/steerbench_converted.csv`:
+
+```
+python create_steerability_report.py --config [CONFIG] --api-config [API_KEY_FILE]
+```
+
+For examples of config files, you can check out `config/mockup.yml` or `config/gpt4_mini.yml`. Currently, we support interacting with the OpenAI API and DeepInfra API.
 
 # Conducting your own steerability analysis from scratch
 
@@ -75,13 +93,12 @@ python create_steerability_report.py --config [CONFIG] --api-config [API_KEY_FIL
 [--overwrite] [--nrows N_ROWS]
 ```
 
-Only the first two (experimental config and API config) are required. This will output a CSV with the raw "steerability data" (i.e., goalspace mappings of the LLM inputs and outputs), and generate plots.
-
-By default, the above command will both conduct a steerability evaluation and generate plots, 
+Only the first two (experimental config and API config) are required. This will output a CSV with the raw "steerability data" (i.e., goalspace mappings of the LLM inputs and outputs), and generate plots. By default, the above command will both conduct a steerability evaluation and generate plots.
 
 ### Future implementation
 
 * A steerability dashboard where you can explore & visualize the steerability data interactively
+* Interfaces with more LLMs
 
 Please file a GitHub issue or email `ctrenton` at `umich` dot `edu` if you have any suggestions, questions, or would like to contribute! 
 

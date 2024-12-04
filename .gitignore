@@ -1,7 +1,6 @@
 cache/
 results/
 results_from_remote/ 
-*.csv
 .pylintrc
 .vscode/
 data/*.json
