@@ -2,12 +2,30 @@ import logging
 
 from sammo import PROMPT_LOGGER_NAME
 from sammo.base import LLMResult, Costs
-from sammo.runners import BaseRunner, RetriableError, NonRetriableError
+from sammo.runners import BaseRunner, OpenAIChat, RetriableError, NonRetriableError
 from sammo.utils import serialize_json
 
 from typing import Optional, Union
 
 prompt_logger = logging.getLogger(PROMPT_LOGGER_NAME)
+
+class VLLMMixIn:
+    BASE_URL = r"http://localhost:{}/v1"
+    SUFFIX = "/chat/completions"
+
+    @classmethod
+    def _get_equivalence_class(cls, model_id: str) -> str:
+        return model_id.split("/")[-1]
+
+    def _rest_url(self):
+        return f"{self.BASE_URL.format(self.port)}{self.SUFFIX}"
+    
+
+class VLLMOpenAIChat(VLLMMixIn, OpenAIChat):
+    def __init__(self, *args, port: Optional[int] = 5000, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.port = port
+
 
 class DeepInfraMixIn:
     BASE_URL = r"https://api.deepinfra.com/v1/inference/"
@@ -17,6 +35,7 @@ class DeepInfraMixIn:
     
     def _rest_url(self):
         return f"{self.BASE_URL}{self._model_id}"
+
 
 class DeepInfraChat(DeepInfraMixIn, BaseRunner):
 
@@ -35,7 +54,7 @@ class DeepInfraChat(DeepInfraMixIn, BaseRunner):
         history: Optional[list[dict]] = None, # keep for now -- may use later
         json_mode: Optional[bool] = None, 
     ) -> LLMResult:
-        formatted_prompt = f"<s>[INST] {prompt} [/INST]" 
+        formatted_prompt = f"<s>[INST] {prompt} [/INST]" # Mistral/Mixtral specific, possibly 
         request = dict(
             input=formatted_prompt,
             max_new_tokens=self._max_context_window or max_tokens,

@@ -1,0 +1,12 @@
+probe: "./data/steerbench_converted.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+    chat_type: "vllm"
+    cache_file: "vllm-deepseek.tsv"
+    other_kwargs:
+        port: 5000
+        max_simul_calls: 64
+        timeout: 600 # turn this down -- one point in particular is troublesome
+experiment_name: "deepseek_distill_8b_local"
+seed: 42

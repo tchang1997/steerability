@@ -1,0 +1,12 @@
+probe: "./data/steerbench_converted.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "meta-llama/Llama-3.3-70B-Instruct"
+    chat_type: "vllm"
+    cache_file: "vllm-meta-llama3-70b.tsv"
+    other_kwargs:
+        port: 5000
+        max_simul_calls: 3
+        timeout: 600
+experiment_name: "llama3.3_70b_local"
+seed: 42

@@ -100,5 +100,15 @@ Only the first two (experimental config and API config) are required. This will 
 * A steerability dashboard where you can explore & visualize the steerability data interactively
 * Interfaces with more LLMs
 
-Please file a GitHub issue or email `ctrenton` at `umich` dot `edu` if you have any suggestions, questions, or would like to contribute! 
+Please file a GitHub issue or email `ctrenton` at `umich` dot `edu` if you have any suggestions, questions, or would like to contribute!
 
+## VLLM Setup (for pinging models locally).
+
+This step is a little more involved. First, it's highly recommended that you create a new env for VLLM and follow their instructions. Then, you should download models via the `huggingface-cli` before actual use via `vllm serve`. The steps are:
+
+1. `pip install huggingface[cli]`
+2. Set the `HF_TOKEN` and (optionally) `HF_HOME` environment variables in your shell config. You'll need to generate `HF_TOKEN` on your HuggingFace account first.
+3. Download the models you want via `huggingface-cli download [ORG_NAME/MODEL_NAME]`
+4. `vllm serve [ORG_NAME/MODEL_NAME] [--your-args-here]`
+
+You can verify that the server is running via `curl http://localhost:PORT/v1/models`. 

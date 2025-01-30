@@ -20,6 +20,7 @@ def get_args():
     psr.add_argument("--config", required=True, type=str, help="YAML configuration file.")
     psr.add_argument("--api-config", required=True, type=str, help="File storing API key.")
     psr.add_argument("--inst-database", type=str, help="Auxiliary data file for advanced instructions (e.g., CoT grounded in specific examples)")
+    psr.add_argument("--seed-data", type=str, help="Seed data used for steerability probe for normalization.", default="./data/default_seed_data_goalspace_mapped.csv")
     psr.add_argument("--nrows", type=int, help="Number of rows of the steerability probe to read. Useful for debugging.")
     psr.add_argument("--overwrite", action="store_true")
     return psr.parse_args()
@@ -39,6 +40,7 @@ if __name__ == '__main__':
     probe_path = cfg["probe"]
     print("Loading steerability probe from", probe_path)
     probe = pd.read_csv(probe_path, index_col=0, nrows=args.nrows)
+    seed_data = pd.read_csv(args.seed_data, index_col=0)
 
     prompt_strategy = cfg["prompt_strategy"]
     print(f"Using prompt strategy `{prompt_strategy}`")
@@ -61,17 +63,18 @@ if __name__ == '__main__':
     target_goals = probe.filter(like='target_', axis=1)
 
     print("Writing prompts...")
-    prompts = llm.write_prompts(delta_goals, target_goals)
+    prompts = llm.write_prompts(delta_goals, target_goals, **cfg.get("inst_addons", {}))
 
     print("Evaluating steerability...")
     print("Pinging endpoint:", llm.url_endpoint)
-    outputs = llm.generate_steerability_data(probe, prompts)
+    outputs = llm.generate_steerability_data(probe, prompts, seed_data) # seed_data for normalization only -- refactor someday?
 
     outputs.to_csv(result_path)
     print("Steerability data saved to", result_path)
 
     # and now we make the plots
-    create_steerability_report(
-        outputs,
-        ["histogram", "goal_by_goal", "side_effect"],
-    )
+    # create_steerability_report(
+    #   outputs,
+    #    ["histogram", "goal_by_goal", "side_effect"],
+    #) 
+    # TODO: new eval goes here + new figure outputs

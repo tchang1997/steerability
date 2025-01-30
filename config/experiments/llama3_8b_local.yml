@@ -1,0 +1,11 @@
+probe: "./data/steerbench_converted.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+    chat_type: "vllm"
+    cache_file: "vllm-meta-llama3-8b.tsv"
+    other_kwargs:
+        port: 5001
+        max_simul_calls: 32
+experiment_name: "llama3_8b_local"
+seed: 42

@@ -32,7 +32,7 @@ def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = No
     elif prompt_strategy == "cot": 
         inst_generator = DirectCoTInstruction()
     else:
-        raise ValueError(f"{mode} is not an implemented instruction generator.")
+        raise ValueError(f"{prompt_strategy} is not an implemented instruction generator.")
     return inst_generator
 
 class InstructionGenerator(object):
@@ -63,10 +63,12 @@ class InstructionGenerator(object):
         resp: list[str],
     ):
         lines = resp[0].split("\n")
-        if "here" in lines[0].lower() and "rewritten" in lines[0].lower():  
+        if "here" in lines[0].lower() and "rewritten" in lines[0].lower(): # hack -- empirically, all instances of an initial "ok, here's X" we've seen follow this format 
             resp_clean = "\n".join(lines[1:])
         else:
             resp_clean = resp[0]
+        # now, remove DeepSeek-R1's thinking tokens
+
         return resp_clean
 
 class DirectTemplateInstruction(InstructionGenerator):
@@ -84,7 +86,7 @@ class DirectTemplateInstruction(InstructionGenerator):
             disambig: Optional[bool] = False
         ):
         instructions = []
-        deltas = np.ma.array(deltas.values, mask=deltas.values == 0)
+        deltas = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values))
         masked_goal_array = np.ma.array(np.where(deltas > 0, self.pos_phrases, self.neg_phrases), mask=deltas.mask)
         for i in range(len(deltas)):
             intents = []
@@ -113,7 +115,7 @@ class DirectTemplateInstruction(InstructionGenerator):
                 warnings.warn(f"All goals have deltas that are too small: {deltas[i].compressed()} for goals {masked_goal_array[i].compressed()}") 
                 instruction = self.base_text + "as close to the original as possible." # this simply makes the prompt coherent English
             else: # length = 1
-                instruction = self.base_text + intents[0]
+                instruction = self.base_text + intents[0] + "."
             if disambig:
                 instruction += DISAMBIG
             if no_explain:

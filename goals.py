@@ -1,5 +1,10 @@
 from abc import ABC, abstractmethod
+import atexit
+import base64
+import bisect
 from collections import OrderedDict
+import json
+import os
 import re
 
 from convokit import PolitenessStrategies
@@ -13,6 +18,7 @@ import textstat
 import torch
 from tqdm.auto import tqdm
 from transformers import pipeline
+import warnings
 
 from beartype import beartype
 from typing import Callable, List, Optional, Union
@@ -30,15 +36,38 @@ class Goalspace(object):
     def __init__(
         self,
         goal_dimensions: List[Union[Goal, Callable[str, np.number]]], # the core functionality of a Goal is a mapping from strings to a real number.
+        cache_path: Optional[str] = "cache/goalspace.json",
     ):
         self.goal_dimensions = goal_dimensions
         self.goal_names = [f.__class__.__name__ for f in self.goal_dimensions]
+        self.cache_path = cache_path
+        if os.path.isfile(cache_path):
+            with open(cache_path, "r") as f:
+                self.cache = json.load(f)
+        else:
+            self.cache = {}
+        atexit.register(self.save_cache)
+
+    def save_cache(self):
+        print("Saving goalspace-mapping cache...")
+        # sync w/ copy on disk. note that this is NOT threadsafe
+        curr_cache = self.cache
+        if os.path.isfile(self.cache_path):
+            with open(self.cache_path, "r") as f:
+                cache_on_disk = json.load(f)
+            curr_cache = {**cache_on_disk, **self.cache} # self.cache will overwrite 
+        with open(self.cache_path, 'w') as f:
+            json.dump(curr_cache, f)
 
     def get_goal_names(self, snake_case=False):
         if snake_case:
             return [re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower() for name in self.goal_names]
         else:
             return self.goal_names
+
+    def encode_key(self, key: str):
+        encoded_key = base64.urlsafe_b64encode(key.encode()).decode()
+        return encoded_key
 
     def __call__(
         self,
@@ -49,7 +78,24 @@ class Goalspace(object):
             x = [x]
         goalspace_mappings = []
         for source_text in tqdm(x):
-            mapping = np.array([goal_fn(source_text) for goal_fn in self.goal_dimensions]) # in theory, there should be a more efficient way to parallelize
+            key = self.encode_key(source_text)
+            try:
+                raw_mapping = self.cache[key]
+                mapping = np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
+            except KeyError:
+                try: # TODO: remove
+                    mapping = np.array([goal_fn(source_text) for goal_fn in self.goal_dimensions]) # in theory, there should be a more efficient way to parallelize + cache
+                except RuntimeError: # mapper functions failed
+                    print("Failed to map source text:", source_text)
+                    # some things are bugging with 3.3 -- to check later
+
+                curr_raw_mapping = {}
+                if source_text in self.cache: 
+                    curr_raw_mapping = self.cache[source_text]
+                mapping_serialized = {
+                        map_fn.__class__.__name__: map_val for map_fn, map_val in zip(self.goal_dimensions, mapping)
+                }
+                self.cache[key] = {**curr_raw_mapping, **mapping_serialized}  #
             goalspace_mappings.append(mapping)
         if return_pandas:
             return pd.DataFrame(goalspace_mappings, columns=self.get_goal_names(snake_case=True))
@@ -104,7 +150,8 @@ class Model(ABC):
     """
     def __init__(self):
         self.model = None
-        self.device = "cuda:1" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        warnings.filterwarnings('ignore', category=UserWarning, module='transformers')
 
     @abstractmethod
     def load(self, force_reload: Optional[bool] = False):
@@ -114,12 +161,37 @@ class Model(ABC):
     def __call__(self, text: str):
         pass
 
+    @beartype
+    def _rechunk(self, sent: str, max_len: int):
+        token_counts = []
+        words = sent.split()
+        for word in words:
+            if word in self.tokenizer_cache:
+                input_ids = self.tokenizer_cache[word]
+            else:
+                input_ids = self.model.tokenizer(word)["input_ids"] # this word-level tokenize is fast, but will always overestimate (which is ok) -- many-to-one token mappings get missed
+                self.tokenizer_cache[word] = input_ids
+            n_tokens = len(input_ids) - 2
+            token_counts.append(n_tokens)
+        cumulative_token_counts = np.cumsum(token_counts)
+        limits = list(range(0, np.sum(token_counts), max_len))
+        start_idx = 0
+        chunks = []
+        for limit in limits:
+            idx = bisect.bisect_left(cumulative_token_counts, limit)
+            chunk = " ".join(words[start_idx:idx])
+            chunks.append(chunk)
+            start_idx = idx
+        return chunks
+
+
 class SentimentClassifier(Model):
     @beartype
     def load(self, force_reload: Optional[bool] = False):
         if self.model is None or force_reload:
             print("Loading sentiment classifier...")
             self.model = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", return_all_scores=True, device=self.device)
+        self.tokenizer_cache = {} # for rechunking only
         return self.model
 
     @beartype
@@ -131,11 +203,22 @@ class SentimentClassifier(Model):
                 sent_results = self.model(sent)
                 sentiment_by_sentences.append(pd.DataFrame(*sent_results))
             except RuntimeError as e:
-                print(f"Sentiment model raised a RuntimeError: {e}. Excluding sentence from sentiment calculation.\nOffending sentence: {sent}")
-        if len(sentences) != len(sentiment_by_sentences):
+                est_sentence_length = len(self.model.tokenizer(sent)["input_ids"]) - 2 # BOS, EOS
+                max_len = self.model.tokenizer.model_max_length
+                if est_sentence_length > max_len: # ran into this issue for Llama3.3 only
+                    print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
+                    
+                    chunks = self._rechunk(sent, max_len)
+                    for chunk in chunks:
+                        chunk_results = self.model(chunk)
+                        sentiment_by_sentences.append(pd.DataFrame(*chunk_results))
+                else:
+                    print(f"Sentiment model raised a RuntimeError: {e}. Excluding sentence from sentiment calculation.\nOffending sentence: {sent}")
+        if len(sentences) > len(sentiment_by_sentences): # if <, then chunking was used
             print(f"Not all sentences were converted successfully ({len(sentiment_by_sentences)}/{len(sentences)}). Consider double-checking this data point.")
         emotion_df = pd.concat(sentiment_by_sentences, keys=range(len(sentiment_by_sentences)))
         return emotion_df.groupby('label').mean()
+
 
 class DetoxifyModel(Model):
     @beartype
@@ -143,12 +226,28 @@ class DetoxifyModel(Model):
         if self.model is None or force_reload:
             print("Loading toxicity classifier...")
             self.model = Detoxify('original', device=self.device)
+        self.tokenizer_cache = {} # for rechunking only
         return self.model
 
     @beartype
     def __call__(self, text: str):
         sentences = sent_tokenize(text)
-        return pd.DataFrame([self.model.predict(sent) for sent in sentences]).mean(axis=0)
+        toxicity_by_sent = []
+        for sent in sentences:
+            input_length = len(self.model.tokenizer(sent)["input_ids"])
+            max_len = self.model.tokenizer.model_max_length
+            if input_length <= max_len:
+                toxicity = self.model.predict(sent)
+                toxicity_by_sent.append(toxicity)
+            else:
+                print(f"Extra-long sentence detected (len: {input_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
+                    
+
+                chunks = self._rechunk(sent, max_len)
+                for chunk in chunks:
+                    toxicity = self.model.predict(chunk)
+                    toxicity_by_sent.append(toxicity)
+        return pd.DataFrame(toxicity_by_sent).mean(axis=0)
 
 
 
