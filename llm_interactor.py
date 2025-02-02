@@ -106,7 +106,7 @@ class LLMInteractor(object):
         elif chat_type == "deepinfra":
             self.chat_instance = DeepInfraChat(**kwargs)
         elif chat_type == "mockup":
-            seed_data = pd.read_csv("./data/default_seed_data.csv", index_col=0)
+            seed_data = pd.read_csv("./data/default_seed_data_goalspace_mapped.csv", index_col=0)
             self.chat_instance = MockedRunner(seed_data["text"].tolist())
         else:
             raise ValueError(f"Chat type `{chat_type}` is not recognized.")
@@ -138,10 +138,10 @@ class LLMInteractor(object):
         final_output = []
         raw_output = []
 
-        for raw_resp in outputs.outputs.llm_responses:
+        for raw_resp in outputs.outputs.llm_responses: 
             try:
-                clean_resp = self.instruction_generator.clean_response(raw_resp) # TODO: potentially add a model-specific response as well 
-                clean_resp = clean_model_output(self.llm_name, clean_resp)
+                clean_resp = clean_model_output(self.llm_name, raw_resp[0]) # by default, only return one response
+                clean_resp = self.instruction_generator.clean_response(clean_resp) # TODO: potentially add a model-specific response as well -- note these aren't perfect, do spot checks
                 raw_output.append(raw_resp[0])
                 final_output.append(clean_resp)
             except Exception as e:

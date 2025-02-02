@@ -61,9 +61,15 @@ if __name__ == '__main__':
     )
     delta_goals = probe.filter(like='delta_', axis=1) # This is heavily reliant on how the probe is implemented at an earlier stage -- target for further refactor
     target_goals = probe.filter(like='target_', axis=1)
+    source_goals = probe.filter(like="source_", axis=1)
+
+    target_corrected_goals = target_goals.copy()
+    for target_col in target_goals.columns:
+        source_col = target_col.replace("target_", "source_")
+        target_corrected_goals[target_col] = target_goals[target_col].fillna(source_goals[source_col])
 
     print("Writing prompts...")
-    prompts = llm.write_prompts(delta_goals, target_goals, **cfg.get("inst_addons", {}))
+    prompts = llm.write_prompts(delta_goals, target_corrected_goals, **cfg.get("inst_addons", {})) # currently, none of the implemented prompting strategies use "target_goals" but maybe just generate this w/o the weird pd.where in future probes
 
     print("Evaluating steerability...")
     print("Pinging endpoint:", llm.url_endpoint)
