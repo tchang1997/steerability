@@ -1,11 +1,12 @@
 import re
 import warnings
 
+from beartype import beartype
 import numpy as np
 import pandas as pd
 
-
-from typing import Any, Callable, Dict, List, Optional
+from beartype.typing import Dict, List
+from typing import Any, Optional
 
 """
     These instruction generators are very tailored to the default goal-space, but it's 
@@ -18,7 +19,7 @@ DISAMBIG = " You must keep the tone of the text and other aspects of the text th
 MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
 LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
 
-
+@beartype
 def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = None, prompter_kwargs: Optional[Dict[str, Any]] = None):
     if prompt_strategy == "direct":
         inst_generator = DirectTemplateInstruction()

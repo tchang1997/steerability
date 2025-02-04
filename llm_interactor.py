@@ -15,7 +15,8 @@ from goals import Goalspace
 from instruction_generator import InstructionGenerator
 from utils.model_output_cleaner import clean_model_output
 
-from typing import Dict, Optional, Tuple, Union
+from beartype.typing import Dict
+from typing import Optional, Union
 
 @beartype
 def renormalize_goalspace(
@@ -171,7 +172,7 @@ class LLMInteractor(object):
         raw_inputs = prompts.str.cat(probe["text"], sep=self.inst_context_delimiter)
         llm_outputs = self.call_llm(raw_inputs, verbose=verbose)
         goalspace = Goalspace.create_default_goalspace_from_probe(probe)
-        goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_")
+        goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
         out_normed = renormalize_goalspace(seed_data, goalspace_out)
 
         steerability_data = pd.concat([

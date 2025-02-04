@@ -6,10 +6,13 @@ results_from_remote/
 data/*.json
 legacy/
 *.swp
+wandb/
 
 # no figures for now
 *.pdf
 *.svg
+
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

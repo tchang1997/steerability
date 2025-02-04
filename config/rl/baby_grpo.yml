@@ -1,0 +1,51 @@
+# ==============================
+# GRPOConfig/TrainingArguments arguments
+# See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
+# ==============================
+output_dir: "/data2/ctrenton/llm/baby_grpo/"
+run_name: "baby_grpo_v1"
+remove_unused_columns: False
+# generation
+max_prompt_length: 2048 # more than enough -- longest text in probe is ~1500 words - TODO: pick a shorter text to test w/
+max_completion_length: 2048 # to give room for <think>ing
+num_generations: 8 # as high as possible -- keep going
+temperature: 0.01 # let's not go too crazy...
+# model parameters
+attn_implementation: "flash_attention_2"
+learning_rate: 1.0e-6
+lr_scheduler_type: "cosine"
+adam_beta1: 0.9
+adam_beta2: 0.99
+weight_decay: 0.1
+warmup_ratio: 0.1
+logging_steps: 1
+per_device_train_batch_size: 1
+per_device_eval_batch_size: 1
+eval_accumulation_steps: 8
+gradient_accumulation_steps: 8
+torch_empty_cache_steps: 8
+num_train_epochs: 5
+beta: 0.04 # anneal?
+model_name_or_path: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+# dtyping
+bf16: True
+bf16_full_eval: True # for deepspeed compat
+# checkpointing, saving, and logging
+gradient_checkpointing: True
+gradient_checkpointing_kwargs:
+    use_reentrant: False
+save_steps: 1000
+save_only_model: True # the optimizer states are like, 100G and cause the server to freak out
+report_to: "wandb"
+# eval 
+eval_strategy: "epoch"
+# vllm
+use_vllm: True
+vllm_device: "auto"
+vllm_gpu_memory_utilization: 0.5
+# ==============================
+# Extra args
+# ==============================
+steerability_probe: "./data/steerbench_converted.csv"
+n_source_texts: 1
+instructions_per_text: 16

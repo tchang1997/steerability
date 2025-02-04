@@ -1,3 +1,4 @@
+from beartype import beartype
 from typing import Optional
 
 def clean_deepseek_thinks(s: str, think_tag: Optional[str] = "think") -> str:
@@ -18,6 +19,7 @@ _cleaner_fns = {
     "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": clean_deepseek_thinks,
 }
 
+@beartype
 def clean_model_output(model_name: str, s: str, **kwargs) -> str:
     cleaner = _cleaner_fns.get(model_name, None)
     if cleaner is not None:

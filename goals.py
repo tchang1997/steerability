@@ -9,6 +9,7 @@ import re
 
 from convokit import PolitenessStrategies
 from detoxify import Detoxify
+from filelock import FileLock
 from nltk.tokenize import sent_tokenize, word_tokenize
 import numpy as np
 import pandas as pd
@@ -17,11 +18,12 @@ from taaled import ld
 import textstat
 import torch
 from tqdm.auto import tqdm
-from transformers import pipeline
+from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
 import warnings
 
 from beartype import beartype
-from typing import Callable, List, Optional, Union
+from beartype.typing import Callable, List
+from typing import Optional, Union
 
 class Goal(ABC):
     @abstractmethod
@@ -35,29 +37,42 @@ class Goalspace(object):
     """
     def __init__(
         self,
-        goal_dimensions: List[Union[Goal, Callable[str, np.number]]], # the core functionality of a Goal is a mapping from strings to a real number.
+        goal_dimensions: List[Union[Goal, Callable[[str], np.number]]], # the core functionality of a Goal is a mapping from strings to a real number.
         cache_path: Optional[str] = "cache/goalspace.json",
     ):
         self.goal_dimensions = goal_dimensions
         self.goal_names = [f.__class__.__name__ for f in self.goal_dimensions]
         self.cache_path = cache_path
+        self.cache_modified = False
         if os.path.isfile(cache_path):
             with open(cache_path, "r") as f:
                 self.cache = json.load(f)
+            atexit.register(self.save_cache)
+        elif self.cache_path is None:
+            self.cache = {}
         else:
             self.cache = {}
-        atexit.register(self.save_cache)
+            atexit.register(self.save_cache)
 
     def save_cache(self):
+        if self.cache_path is None:
+            print("Cache path is None. Saving skipped.")
+            return
+        if not self.cache_modified:
+            print("Cache has not been modified.")
+            return
+
         print("Saving goalspace-mapping cache...")
         # sync w/ copy on disk. note that this is NOT threadsafe
         curr_cache = self.cache
-        if os.path.isfile(self.cache_path):
-            with open(self.cache_path, "r") as f:
-                cache_on_disk = json.load(f)
-            curr_cache = {**cache_on_disk, **self.cache} # self.cache will overwrite 
-        with open(self.cache_path, 'w') as f:
-            json.dump(curr_cache, f)
+        lock = FileLock(self.cache_path + ".lock")
+        with lock:
+            if os.path.isfile(self.cache_path):
+                with open(self.cache_path, "r") as f:
+                    cache_on_disk = json.load(f)
+                curr_cache = {**cache_on_disk, **self.cache} # self.cache will overwrite 
+            with open(self.cache_path, 'w') as f:
+                json.dump(curr_cache, f)
 
     def get_goal_names(self, snake_case=False):
         if snake_case:
@@ -73,11 +88,12 @@ class Goalspace(object):
         self,
         x: Union[List[str], str],
         return_pandas: Optional[bool] = True,
+        show_progress: Optional[bool] = True,
     ):
         if not isinstance(x, list):
             x = [x]
         goalspace_mappings = []
-        for source_text in tqdm(x):
+        for source_text in tqdm(x, disable=not show_progress):
             key = self.encode_key(source_text)
             try:
                 raw_mapping = self.cache[key]
@@ -87,15 +103,17 @@ class Goalspace(object):
                     mapping = np.array([goal_fn(source_text) for goal_fn in self.goal_dimensions]) # in theory, there should be a more efficient way to parallelize + cache
                 except RuntimeError: # mapper functions failed
                     print("Failed to map source text:", source_text)
-                    # some things are bugging with 3.3 -- to check later
 
                 curr_raw_mapping = {}
                 if source_text in self.cache: 
                     curr_raw_mapping = self.cache[source_text]
                 mapping_serialized = {
-                        map_fn.__class__.__name__: map_val for map_fn, map_val in zip(self.goal_dimensions, mapping)
+                    map_fn.__class__.__name__: map_val for map_fn, map_val in zip(self.goal_dimensions, mapping)
                 }
-                self.cache[key] = {**curr_raw_mapping, **mapping_serialized}  #
+
+                if self.cache_path is not None: # don't eat up memory if we won't even save
+                    self.cache[key] = {**curr_raw_mapping, **mapping_serialized}  
+                    self.cache_modified = True
             goalspace_mappings.append(mapping)
         if return_pandas:
             return pd.DataFrame(goalspace_mappings, columns=self.get_goal_names(snake_case=True))
@@ -148,9 +166,13 @@ class Model(ABC):
     """
         Utility class. On-demand model loading and calling.
     """
-    def __init__(self):
+    def __init__(self, device: Optional[str] = None):
         self.model = None
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        if device is None:
+            num_gpus = torch.cuda.device_count()
+            self.device = f"cuda:{num_gpus-1}" if torch.cuda.is_available() else "cpu" # ....we'll deal with this later
+        else:
+            self.device = device
         warnings.filterwarnings('ignore', category=UserWarning, module='transformers')
 
     @abstractmethod
@@ -171,7 +193,7 @@ class Model(ABC):
             else:
                 input_ids = self.model.tokenizer(word)["input_ids"] # this word-level tokenize is fast, but will always overestimate (which is ok) -- many-to-one token mappings get missed
                 self.tokenizer_cache[word] = input_ids
-            n_tokens = len(input_ids) - 2
+            n_tokens = len(input_ids) # let's play it safe here and not worry about correcting for extra BOS/EOS -- worst-case, the sentences are slightly too short, which is not...bad?
             token_counts.append(n_tokens)
         cumulative_token_counts = np.cumsum(token_counts)
         limits = list(range(0, np.sum(token_counts), max_len))
@@ -189,8 +211,15 @@ class SentimentClassifier(Model):
     @beartype
     def load(self, force_reload: Optional[bool] = False):
         if self.model is None or force_reload:
-            print("Loading sentiment classifier...")
-            self.model = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", return_all_scores=True, device=self.device)
+            print(f"Loading sentiment classifier onto device {self.device}...")
+            model_tag = "j-hartmann/emotion-english-distilroberta-base"
+            model = AutoModelForSequenceClassification.from_pretrained("j-hartmann/emotion-english-distilroberta-base")
+            model = torch.compile(model)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_tag) # keep this for internal length checks later
+            model_pipeline = pipeline("text-classification", model=model, tokenizer=self.tokenizer, device=self.device) # this'll spit out some warning, which we can ignore :D
+            #model_pipeline = pipeline("text-classification", model=model_tag, return_all_scores=True, device=self.device)
+            self.model = model_pipeline
+            print("Loading completed!")
         self.tokenizer_cache = {} # for rechunking only
         return self.model
 
@@ -198,22 +227,28 @@ class SentimentClassifier(Model):
     def __call__(self, text: str):
         sentences = sent_tokenize(text) # this model is trained at the sentence/utterance level, so break it up this way
         sentiment_by_sentences = []
-        for sent in sentences: 
-            try:
-                sent_results = self.model(sent)
-                sentiment_by_sentences.append(pd.DataFrame(*sent_results))
-            except RuntimeError as e:
-                est_sentence_length = len(self.model.tokenizer(sent)["input_ids"]) - 2 # BOS, EOS
-                max_len = self.model.tokenizer.model_max_length
-                if est_sentence_length > max_len: # ran into this issue for Llama3.3 only
-                    print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
-                    
-                    chunks = self._rechunk(sent, max_len)
-                    for chunk in chunks:
-                        chunk_results = self.model(chunk)
-                        sentiment_by_sentences.append(pd.DataFrame(*chunk_results))
-                else:
-                    print(f"Sentiment model raised a RuntimeError: {e}. Excluding sentence from sentiment calculation.\nOffending sentence: {sent}")
+        for sent in sentences: # TODO: pre-process sentences via length-check, then batch inference?
+            sent = sent.strip()
+
+            est_sentence_length = len(self.tokenizer(sent)["input_ids"]) - 2 # BOS, EOS
+            max_len = self.model.tokenizer.model_max_length
+            if est_sentence_length > max_len: # ran into this issue for Llama3.3 only
+                print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
+                
+                chunks = self._rechunk(sent, max_len)
+                for chunk in chunks:
+                    n_tokens = len(self.model.tokenizer(chunk)["input_ids"]) - 2
+                    if n_tokens > max_len:
+                        raise RuntimeError(f"Chunk still exceeds maximum length. Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
+                    with torch.no_grad():
+                        # print("Tokens in chunk:", n_tokens)
+                        chunk_results = self.model(chunk, top_k=None)
+                    sentiment_by_sentences.append(pd.DataFrame(chunk_results))
+            else: # proceed normally
+                with torch.no_grad():
+                    sent_results = self.model(sent, top_k=None) 
+                sentiment_by_sentences.append(pd.DataFrame(sent_results))
+
         if len(sentences) > len(sentiment_by_sentences): # if <, then chunking was used
             print(f"Not all sentences were converted successfully ({len(sentiment_by_sentences)}/{len(sentences)}). Consider double-checking this data point.")
         emotion_df = pd.concat(sentiment_by_sentences, keys=range(len(sentiment_by_sentences)))

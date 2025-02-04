@@ -24,7 +24,7 @@ from tqdm.auto import tqdm
 from cache import GoalspaceCache
 from goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
 
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 tqdm.pandas()
 yaml = YAML(typ='safe')
