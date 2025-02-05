@@ -1,3 +1,6 @@
+import os
+
+from accelerate import Accelerator
 from accelerate.utils import broadcast_object_list, gather_object
 from peft import PeftModel
 from transformers import PreTrainedModel
@@ -6,14 +9,63 @@ from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_c
 from trl.models import unwrap_model_for_generation
 from trl.trainer.utils import pad
 import torch
+from vllm import LLM, SamplingParams
 
 from typing import Any, Optional, Union
+
+os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "True"
+
+def _generate_completions_vllm( # for a future thing? idk
+    prompts: list[str],
+    vllm_model: LLM,
+    accelerator: Accelerator,
+    max_completion_length: int, 
+    inference_num_generations: Optional[int] = 1,
+    inference_temperature: Optional[float] = 0.,
+) -> list[str]:
+    # assume no chat template.
+    if accelerator.is_main_process:
+        inference_sampling_params = SamplingParams(
+            n=inference_num_generations,
+            temperature=inference_temperature,
+            max_tokens=max_completion_length
+        )
+        outputs = vllm_model.generate(prompts, sampling_params=inference_sampling_params, use_tqdm=False)
+    else:
+        outputs = [None] * len(prompts)
+    outputs = broadcast_object_list(outputs, from_process=0)
+    return outputs
+
+
+
 
 # Patch to `get_per_token_logps` in `compute_loss()`: https://github.com/huggingface/trl/issues/2709 
 # Addresses OOM due to memory utilization spike due to multiple generations per text. 
 # 99% of the remaining is essentially copy-pasted without modification from here:
 # https://github.com/huggingface/trl/blob/801582ec240c46ecd487a72fcc8944f268380830/trl/trainer/grpo_trainer.py#L435
 class GRPOTrainerWithPatch(GRPOTrainer):
+
+    def _get_per_token_logps(self, model, input_ids, attention_mask, logits_to_keep, micro_batch_size=1):
+        batch_size = input_ids.size(0)
+        per_token_logps = []
+
+        for i in range(0, batch_size, micro_batch_size):
+            batch_end = min(i + micro_batch_size, batch_size)
+            mini_batch = input_ids[i:batch_end]
+            micro_attn_mask = attention_mask[i:batch_end]
+
+            # We add 1 to `num_logits_to_keep` because the last logits of the sequence is later excluded
+            mini_batch_logits = model(mini_batch, attention_mask=micro_attn_mask, num_logits_to_keep=logits_to_keep + 1).logits  # (B, L, V)
+            logits = mini_batch_logits[:, :-1, :]  # (B, L-1, V), exclude the last logit
+            
+            # Compute log probs for this mini-batch
+            log_probs = logits.log_softmax(dim=-1)
+            mini_batch_ids = mini_batch[:, -logits_to_keep:]
+            token_log_prob = torch.gather(log_probs, dim=2, index=mini_batch_ids.unsqueeze(2)).squeeze(2)
+            per_token_logps.append(token_log_prob)
+
+        return torch.cat(per_token_logps, dim=0)
+    
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
         device = self.accelerator.device
         prompts = [x["prompt"] for x in inputs]

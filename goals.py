@@ -99,10 +99,16 @@ class Goalspace(object):
                 raw_mapping = self.cache[key]
                 mapping = np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
             except KeyError:
-                try: # TODO: remove
-                    mapping = np.array([goal_fn(source_text) for goal_fn in self.goal_dimensions]) # in theory, there should be a more efficient way to parallelize + cache
-                except RuntimeError: # mapper functions failed
-                    print("Failed to map source text:", source_text)
+                mapping = []
+                for goal_fn in self.goal_dimensions:
+                    try:
+                        goal_val = goal_fn(source_text)
+                    except RuntimeError as e: # mapper functions failed
+                        print(f"MAPPING FAILED DURING GOAL - {goal_fn.__class__.__name__}")
+                        print("Failed to map source text:", source_text)
+                        raise e
+                    mapping.append(goal_val)
+                mapping = np.array(mapping) # in theory, there should be a more efficient way to parallelize + cache
 
                 curr_raw_mapping = {}
                 if source_text in self.cache: 
@@ -214,7 +220,7 @@ class SentimentClassifier(Model):
             print(f"Loading sentiment classifier onto device {self.device}...")
             model_tag = "j-hartmann/emotion-english-distilroberta-base"
             model = AutoModelForSequenceClassification.from_pretrained("j-hartmann/emotion-english-distilroberta-base")
-            model = torch.compile(model)
+            # model = torch.compile(model)
             self.tokenizer = AutoTokenizer.from_pretrained(model_tag) # keep this for internal length checks later
             model_pipeline = pipeline("text-classification", model=model, tokenizer=self.tokenizer, device=self.device) # this'll spit out some warning, which we can ignore :D
             #model_pipeline = pipeline("text-classification", model=model_tag, return_all_scores=True, device=self.device)
@@ -241,7 +247,7 @@ class SentimentClassifier(Model):
                     if n_tokens > max_len:
                         raise RuntimeError(f"Chunk still exceeds maximum length. Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
                     with torch.no_grad():
-                        # print("Tokens in chunk:", n_tokens)
+                        print("Tokens in chunk:", n_tokens)
                         chunk_results = self.model(chunk, top_k=None)
                     sentiment_by_sentences.append(pd.DataFrame(chunk_results))
             else: # proceed normally

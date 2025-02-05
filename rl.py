@@ -7,6 +7,7 @@ import re
 import requests
 import time
 
+from accelerate import Accelerator
 from aiohttp import ClientSession
 from beartype import beartype
 from datasets import Dataset
@@ -14,10 +15,13 @@ import numpy as np
 import pandas as pd
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
+import trl
 from trl import (
     GRPOConfig,
     GRPOTrainer, # until further notice we use a patched version
     ModelConfig,
+    LogCompletionsCallback,
+    RichProgressCallback,
 )
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
@@ -54,8 +58,8 @@ def prepare_steerability_probe(probe_config, model_name) -> Dataset:
     final_probe["instructions"] = instruction_generator.sample_prompt(delta_goals, target_goals)
     final_probe["prompt"] = final_probe["instructions"] + "\n\n" + final_probe[probe_config.source_text_col]
     final_probe["model_name"] = model_name # ...I don't want to talk about this HACK
-    print("Final probe length:", final_probe)
-    print("Columns:", final_probe)
+    print("Final probe length:", len(final_probe))
+    print("Columns:", final_probe.columns)
     return Dataset.from_pandas(final_probe)
 
 def await_server(port: Optional[int] = 12121, timeout: Optional[int] = 300):
@@ -112,7 +116,7 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
 
 def format_reward_func(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<think>.*?</think>$" # keep the deepseek format
+    pattern = r"^<think>.*?</think>" # keep the deepseek format
     matches = [re.match(pattern, content) for content in completions]
     return [1.0 if match else 0.0 for match in matches]
 
@@ -157,18 +161,11 @@ if __name__ == '__main__':
     reward_funcs = [steerability_reward_wrapper]
     if model_config.model_name_or_path.split("/")[0] == "deepseek-ai":
         reward_funcs.append(format_reward_func)
-    
-    # peft_config = LoraConfig(
-    #     base_model_name_or_path=model_config.model_name_or_path,
-    #     r=16,
-    #     lora_alpha=64,
-    #     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
-    #     task_type="CAUSAL_LM",
-    #     lora_dropout=0.05,
-    # )
+    print("TRL path:", trl.__file__)
+
     model = AutoModelForCausalLM.from_pretrained(model_config.model_name_or_path)
-    model.enable_input_require_grads()
-    trainer = GRPOTrainerWithPatch(
+    #model.enable_input_require_grads()
+    trainer = GRPOTrainer(
         model=model,
         processing_class=tokenizer,
         reward_funcs=reward_funcs,
@@ -177,6 +174,9 @@ if __name__ == '__main__':
         eval_dataset=dataset, # generations can be done on the training data -- if it can't even overfit to training, how can it ever work on future eval datasets?
         # peft_config=peft_config,
     )
+    callbacks = [RichProgressCallback(), LogCompletionsCallback(trainer=trainer, num_prompts=8)]
+    for callback in callbacks:
+        trainer.add_callback(callback)
     if hasattr(trainer.model, "print_trainable_parameters"):
         trainer.model.print_trainable_parameters() # access the peft-ed model
     trainer.train() 
