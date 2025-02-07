@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Union
 
 @dataclass
 class SteerabilityProbeConfig:
@@ -10,6 +11,11 @@ class SteerabilityProbeConfig:
     n_source_texts: int = field(
         default=1,
         metadata={"help": "Number of source texts to sample for training data."}
+    )
+    
+    apply_conversational_format: bool = field(
+        default=True,
+        metadata={"help": "Whether to apply basic conversational request template (OpenAI style), e.g., `{'role': 'user', 'content': [PROMPT]}`"}
     )
 
     instructions_per_text: int = field(
@@ -45,4 +51,18 @@ class GoalspaceServerConfig:
     startup_timeout: int = field(
         default = 300,
         metadata={"help": "Maximum time to wait (in seconds) for server to start up."}
+    )
+
+@dataclass
+class UnslothLoraConfig:
+    lora_adapter_name: str = field(
+        metadata={"help": "LoRA adapter name for run."}
+    )
+    unsloth_random_state: int = field(
+        default=3407,
+        metadata={"help": "Random state for Unsloth LoRA model."}
+    )
+    unsloth_grad_checkpointing: Union[str, bool] = field(
+        default="unsloth",
+        metadata={"help": "Gradient checkpointing mode for unsloth PeFT. Supports `unsloth` option in addition to bools for long-context training."}
     )

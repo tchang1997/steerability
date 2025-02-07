@@ -6,6 +6,8 @@ results_from_remote/
 data/*.json
 legacy/
 *.swp
+unsloth_compiled_cache/
+grpo_trainer_lora_model/
 wandb/
 
 # no figures for now
