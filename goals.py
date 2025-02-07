@@ -214,6 +214,8 @@ class Model(ABC):
 
 
 class SentimentClassifier(Model):
+    CHINESE_PATTERN = re.compile(r"[\u4E00-\u9FFF]")
+
     @beartype
     def load(self, force_reload: Optional[bool] = False):
         if self.model is None or force_reload:
@@ -230,7 +232,15 @@ class SentimentClassifier(Model):
         return self.model
 
     @beartype
-    def __call__(self, text: str):
+    def maybe_remove_chinese(self, text: str): # this happens in some models and really messes up the classifier -- just drop 
+        if not self.CHINESE_PATTERN.search(text):  
+            return text
+        print("Warning: Chinese characters detected. Removing to avoid tokenization issues. This may result in inaccurate results.")
+        return self.CHINESE_PATTERN.sub("", text)
+    
+    @beartype
+    def __call__(self, text: str):        
+        text = self.maybe_remove_chinese(text)
         sentences = sent_tokenize(text) # this model is trained at the sentence/utterance level, so break it up this way
         sentiment_by_sentences = []
         for sent in sentences: # TODO: pre-process sentences via length-check, then batch inference?
@@ -379,7 +389,7 @@ class Politeness(Goal):
     def __call__(self, text: str):
         sentences = sent_tokenize(text)
         politeness_model = self.get_politeness_model()
-        politeness_df = pd.DataFrame([politeness_model.transform_utterance(sent, spacy_nlp=self.get_spacy_model()).meta["politeness_strategies"] for sent in sentences])        
+        politeness_df = pd.DataFrame([politeness_model.transform_utterance(sent, spacy_nlp=self.get_spacy_model()).meta["politeness_strategies"] for sent in sentences])  # TODO: handle empty strings as edge cases
         return (politeness_df.mean(axis=0) @ self._politeness_weights.T).item()
 
 class HFSentiment(Goal):

@@ -8,20 +8,20 @@ import requests
 import time
 
 from accelerate import Accelerator
+from accelerate.logging import get_logger
 from aiohttp import ClientSession
 from beartype import beartype
 from datasets import Dataset
 import numpy as np
 import pandas as pd
-from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
+# from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser, GenerationConfig
 import trl
 from trl import (
     GRPOConfig,
     GRPOTrainer, # until further notice we use a patched version
     ModelConfig,
     LogCompletionsCallback,
-    RichProgressCallback,
 )
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
@@ -32,6 +32,9 @@ from utils.model_output_cleaner import clean_model_output
 
 from beartype.typing import List
 from typing import Optional, Union
+
+logger = get_logger(__name__, log_level="INFO")
+CHINESE_PATTERN = re.compile(r"[\u4E00-\u9FFF]")
 
 @beartype
 def prepare_steerability_probe(probe_config, model_name) -> Dataset: 
@@ -78,19 +81,31 @@ def await_server(port: Optional[int] = 12121, timeout: Optional[int] = 300):
         time.sleep(5)
     raise RuntimeError(f"❌ Goalspace-mapping server did not start within the time limit ({timeout} seconds).")
 
-async def send_request(session: ClientSession, texts: List[str], port: Optional[int] = 12121):
+async def send_request(
+        session: ClientSession,
+        texts: List[str],
+        goals: Optional[List[str]] = None,
+        port: Optional[int] = 12121
+    ):
     inference_url = f"http://127.0.0.1:{port}/goalspace" # why stop here? We can even throw vLLM in here someday
     payload = {"texts": texts}
+    if goals is not None:
+        payload["goals"] = goals
     async with session.post(inference_url, json=payload) as response:
         return await response.json()
 
-async def map_to_goalspace(texts: Union[str, List[str]], port: Optional[int] = 12121, n_workers: Optional[int] = 4): # TODO: figure out how to override without crazy hacks
+async def map_to_goalspace(
+        texts: Union[str, List[str]],
+        goals: Optional[List[str]] = None,
+        port: Optional[int] = 12121,
+        n_workers: Optional[int] = 4
+    ):
     if isinstance(texts, str):
         texts = [texts]
     batch_size = math.ceil(len(texts) / n_workers)
     text_batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
     async with ClientSession() as session:
-        tasks = [send_request(session, batch, port=port) for batch in text_batches]
+        tasks = [send_request(session, batch, goals=goals, port=port) for batch in text_batches]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
     merged_responses = defaultdict(list)
     for response in responses:
@@ -111,7 +126,7 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
     macro_negreward = np.zeros(len(cleaned_completions))
     for goal, values in mappings.items():
         macro_negreward += np.square(np.array(kwargs[f"target_{goal}"]) - np.array(values)) # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
-    rewards = -macro_negreward 
+    rewards = (-macro_negreward / len(mappings) + 1) # normalize to [0, 1]; macro_negreward is in range [-sqrt(len(mappings), 0]
     return rewards
 
 def format_reward_func(completions, **kwargs):
@@ -119,6 +134,11 @@ def format_reward_func(completions, **kwargs):
     pattern = r"^<think>.*?</think>" # keep the deepseek format
     matches = [re.match(pattern, content) for content in completions]
     return [1.0 if match else 0.0 for match in matches]
+
+def english_only_reward_func(completions, **kwargs):
+    """most common language mixing is Chinese, so just detect + penalize"""
+    return [0.0 if CHINESE_PATTERN.search(content) else 1.0 for content in completions]
+
 
 def get_tokenizer(model_args):
     tokenizer = AutoTokenizer.from_pretrained(
@@ -160,7 +180,8 @@ if __name__ == '__main__':
     print("Preparing trainer...")
     reward_funcs = [steerability_reward_wrapper]
     if model_config.model_name_or_path.split("/")[0] == "deepseek-ai":
-        reward_funcs.append(format_reward_func)
+        reward_funcs += [format_reward_func, english_only_reward_func]
+
     print("TRL path:", trl.__file__)
 
     model = AutoModelForCausalLM.from_pretrained(model_config.model_name_or_path)
@@ -172,13 +193,22 @@ if __name__ == '__main__':
         args=training_config,
         train_dataset=dataset,
         eval_dataset=dataset, # generations can be done on the training data -- if it can't even overfit to training, how can it ever work on future eval datasets?
-        # peft_config=peft_config,
     )
-    callbacks = [RichProgressCallback(), LogCompletionsCallback(trainer=trainer, num_prompts=8)]
+    callbacks = [
+        LogCompletionsCallback(
+            trainer=trainer,
+            num_prompts=8,
+            freq=1,
+            generation_config=GenerationConfig(
+                max_new_tokens=training_config.max_completion_length,
+                do_sample=False, # implicitly temp = 0
+            )
+        )
+    ]
     for callback in callbacks:
         trainer.add_callback(callback)
     if hasattr(trainer.model, "print_trainable_parameters"):
         trainer.model.print_trainable_parameters() # access the peft-ed model
     trainer.train() 
-    #trainer.save_model(training_config.output_dir)
+    trainer.save_model(training_config.output_dir)
     #trainer.generate_completions()
