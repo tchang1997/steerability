@@ -21,26 +21,12 @@ from sklearn.metrics import roc_auc_score
 from ruamel.yaml import YAML
 from tqdm.auto import tqdm
 
-from cache import GoalspaceCache
 from goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
 
 from typing import Optional, Union
 
 tqdm.pandas()
 yaml = YAML(typ='safe')
-
-def stable_hash(text: str) -> str:
-    return hashlib.md5(text.encode()).hexdigest()
-
-@beartype
-def map_string_to_goalspace(row: pd.Series, goalspace: Goalspace, cache: Optional[GoalspaceCache] = None, text_col: Optional[str] = "text") -> np.ndarray:
-    text = row[text_col]
-    if stable_hash(text) in cache:
-        goalspace_vector = cache[stable_hash(text)]
-    else:
-        goalspace_vector = goalspace(text, return_pandas=False)
-        cache[stable_hash(text)] = goalspace_vector
-    return goalspace_vector
 
 @beartype
 def get_uniform_weights(goalspace_df: pd.DataFrame, weighting_goals: Goalspace) -> np.ndarray:
@@ -161,11 +147,10 @@ if __name__ == '__main__':
     else:
         goalspace = Goalspace([GoalFactory.get_default(g) for g in args.goals]) # future: make it possible to override and pass kwargs to the downstream classes
 
-    cache = None
-    if args.cache_name is not None:
-        cache = GoalspaceCache(args.cache_name)
-    goalspace_data = dataset.progress_apply(lambda row: map_string_to_goalspace(row, goalspace=goalspace, cache=cache, text_col=args.text_col), axis=1) 
-    goalspace_df = pd.DataFrame(np.concatenate(goalspace_data.tolist(), axis=0), columns=goalspace.get_goal_names(snake_case=True))
+    # cache = None
+    # if args.cache_name is not None:
+    #     cache = GoalspaceCache(args.cache_name)
+    goalspace_df = goalspace(dataset[args.text_col].tolist())
     goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
     
     if args.weighting_goals is None:
@@ -174,6 +159,8 @@ if __name__ == '__main__':
         weighting_goals = Goalspace([GoalFactory.get_default(g) for g in args.weighting_goals])
 
     goalspace_df["sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals)
+    if "sampling_weights" in dataset.columns:
+        dataset = dataset.drop("sampling_weights", axis=1)
     goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
     steerability_probe = create_final_probe(
         goalspace_df,
@@ -188,6 +175,12 @@ if __name__ == '__main__':
     steerability_probe.to_csv(cfg["name"] + ".csv")
     print("Saved steerability probe to", cfg["name"] + ".csv")
 
-    mapping_path = args.seed_data.replace(".csv", "_goalspace_mapped.csv")
+    if args.weighting_goals is None:
+        replace_stub = "_goalspace_mapped.csv"
+    elif len(args.weighting_goals) == 2:
+        replace_stub = f"_goalspace_{args.weighting_goals[0]}_{args.weighting_goals[1]}.csv"
+    else:
+        replace_stub = f"_goalspace_{len(args.weighting_goals)}d.csv"
+    mapping_path = args.seed_data.replace(".csv", replace_stub)
     goalspace_df.to_csv(mapping_path)
     print("Saved original goalspace mappings (+/- normalization) to", mapping_path)

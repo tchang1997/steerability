@@ -1,0 +1,8 @@
+name: "steer_2d"
+args:
+    n_source_texts: 50
+    n_goals_per_text: 40
+    max_active_goals: 2
+    delta_min: -0.7
+    delta_max: 0.7
+    deadzone: 0.1

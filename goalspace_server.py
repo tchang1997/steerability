@@ -39,6 +39,11 @@ async def health():
     """Check server readiness."""
     return {"ready": True}
 
+@app.get("/goals")
+async def goals():
+    on_receive("/goals", None)
+    return {"goals": GOALSPACE.get_goal_names(snake_case=True)}
+
 @app.post("/goalspace")
 async def goalspace(request: InferenceRequest):
     on_receive("/goalspace", request.model_dump_json())

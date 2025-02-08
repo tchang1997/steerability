@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Union
+from typing import List, Optional, Union
 
 @dataclass
 class SteerabilityProbeConfig:
@@ -65,4 +65,11 @@ class UnslothLoraConfig:
     unsloth_grad_checkpointing: Union[str, bool] = field(
         default="unsloth",
         metadata={"help": "Gradient checkpointing mode for unsloth PeFT. Supports `unsloth` option in addition to bools for long-context training."}
+    )
+
+@dataclass
+class ExtraRewardKwargs:
+    steering_goals: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "List of goals to run. Ping endpoint /goals on goalspace server to get a list."}
     )

@@ -2,26 +2,22 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/baby_grpo_v2/"
-run_name: "baby_grpo_v2"
+output_dir: "/data2/ctrenton/llm/micro_steer_grpo_2d_n1_i16/"
+run_name: "micro_steer_grpo_2d_n1_i16"
 remove_unused_columns: False
 # ==============================
 # Default generation args
 # ==============================
 max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
 max_completion_length: 2048 # [MAXED] to give room for <think>ing
-num_generations: 6 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
+num_generations: 4 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
 temperature: 0.6 # recommended by DeepSeek on HuggingFace model page
 # ==============================
 # Model/training args
 # ==============================
 attn_implementation: "flash_attention_2"
-learning_rate: 1.0e-6
+learning_rate: 5.0e-6
 lr_scheduler_type: "cosine"
-optim: "galore_adamw_8bit"
-optim_target_modules:
-    - "attn"
-    - "mlp"
 adam_beta1: 0.9
 adam_beta2: 0.99
 weight_decay: 0.1
@@ -30,7 +26,7 @@ logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
 per_device_train_batch_size: 1
 per_device_eval_batch_size: 1
 gradient_accumulation_steps: 4
-num_train_epochs: 1
+num_train_epochs: 32
 beta: 0.04 # anneal?
 model_name_or_path: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B" 
 # dtyping
@@ -40,7 +36,7 @@ bf16_full_eval: True # for deepspeed compat
 # ==============================
 # Gradient Checkpointing
 # ==============================
-gradient_checkpointing: False # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
+gradient_checkpointing: True # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
 gradient_checkpointing_kwargs:
     use_reentrant: False # [DO NOT CHANGE] I don't know how to explain this one. Just don't touch it.
 torch_empty_cache_steps: 1
@@ -50,7 +46,8 @@ torch_empty_cache_steps: 1
 # Note that we omit eval in lieu of using a callback to generate responses -- the eye-test is the best catch for reward-hacking ;)
 # ==============================
 save_only_model: True # the optimizer states are like, 100G and cause the server to freak out
-report_to: "none"
+report_to: "wandb"
+log_completions: False
 # ==============================
 # vLLM arguments 
 # ==============================
@@ -61,8 +58,14 @@ vllm_max_model_len: 4096
 # ==============================
 # Extra args
 # ==============================
-steerability_probe: "./data/steerbench_converted.csv"
+steerability_probe: "./data/steer_2d.csv"
 n_source_texts: 1
-instructions_per_text: 8
+instructions_per_text: 16
 apply_conversational_format: True
+# ==============================
+# Goals to optimize
+# ==============================
+steering_goals: # extra reward kwargs will be passed to the reward funcs
+    - "sadness"
+    - "surprise"
 

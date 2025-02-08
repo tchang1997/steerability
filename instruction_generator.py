@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import re
 import warnings
 
@@ -18,6 +19,7 @@ NO_EXPLAIN = " Respond with only the rewritten text and do not explain your resp
 DISAMBIG = " You must keep the tone of the text and other aspects of the text the same as the original unless explicitly instructed otherwise."
 MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
 LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
+GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
 
 @beartype
 def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = None, prompter_kwargs: Optional[Dict[str, Any]] = None):
@@ -90,17 +92,31 @@ class DirectTemplateInstruction(InstructionGenerator):
             disambig: Optional[bool] = False
         ):
         instructions = []
-        deltas = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values))
-        masked_goal_array = np.ma.array(np.where(deltas > 0, self.pos_phrases, self.neg_phrases), mask=deltas.mask)
-        for i in range(len(deltas)):
+        goal_names = deltas.columns.str.replace("delta_", "")
+        deltas = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values)) # mask = invalid value; i.e., goal is inactive
+
+        pos_phrases_in_use = []
+        neg_phrases_in_use = []
+        for goal in goal_names:
+            try:
+                goal_idx = GOAL_INDEX.index(goal)
+                pos_phrases_in_use.append(self.pos_phrases[goal_idx])
+                neg_phrases_in_use.append(self.neg_phrases[goal_idx])
+            except ValueError:
+                raise ValueError(f"Goal {goal} not supported. Valid goals: {GOAL_INDEX}")
+        masked_goal_array = np.ma.array(np.where(deltas > 0, pos_phrases_in_use, neg_phrases_in_use), mask=deltas.mask)
+        for i in range(len(deltas)): # for each example
             intents = []
-            for intent, val in zip(masked_goal_array[i].compressed(), deltas[i].compressed()):
+            for intent, val in zip(masked_goal_array[i].compressed(), deltas[i].compressed()): # for all active goals and deltas for example i...
+                # intent is an adjectival phrase
+
                 modifier = None
                 if np.abs(val) > 0.5:
                     modifier = "much "
                 elif np.abs(val) < 0.2:
                     modifier = "slightly "
-                # o/w: no modifier
+                # else closer than 0.2:
+                #   no modifier
 
                 if modifier is not None:
                     if not intent.startswith("more") and "more" in intent:
@@ -330,3 +346,23 @@ class DirectGroundedInstruction(DirectTemplateInstruction, InstructionSamplingMi
         final_prompts = self.add_instructions_to_prompt(prompt, self.n_instructions)
         return final_prompts
     
+if __name__ == '__main__':
+    psr = ArgumentParser()
+    psr.add_argument("--probe", type=str, help="Probe (CSV) for testing instruction generator.")
+    psr.add_argument("--prompt-strategy", type=str, default="direct", help="Instruction generator to test.")
+    args = psr.parse_args()
+
+    inst_gen = get_instruction_generator(args.prompt_strategy) # TODO: figure out how to pass some dummy default kwargs for applicable generators
+    probe = pd.read_csv(args.probe, index_col=0, nrows=1)
+    deltas = probe.filter(like="delta_", axis=1)
+    targets = probe.filter(like="targets_", axis=1)
+    test_prompt = inst_gen.sample_prompt(deltas, targets)
+    
+    print("Steerability probe:", args.probe)
+    print("Prompting strategy:", args.prompt_strategy)
+    print("=" * 40)
+    print("Source text info:")
+    print(probe.iloc[0])
+    print()
+    print("Prompt (generated):")
+    print(*test_prompt)

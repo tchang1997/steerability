@@ -10,7 +10,7 @@ remove_unused_columns: False
 # ==============================
 max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
 max_completion_length: 2048 # [MAXED] to give room for <think>ing
-num_generations: 6 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
+num_generations: 8 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
 temperature: 0.6 # recommended by DeepSeek on HuggingFace model page
 # ==============================
 # Model/training args
@@ -19,9 +19,10 @@ attn_implementation: "flash_attention_2"
 learning_rate: 1.0e-6
 lr_scheduler_type: "cosine"
 optim: "galore_adamw_8bit"
-optim_target_modules:
-    - "attn"
-    - "mlp"
+optim_args: "rank=64, update_proj_gap=100, scale=0.10"
+optim_target_modules: 
+    - ".*attn.*"
+    - ".*mlp.*"
 adam_beta1: 0.9
 adam_beta2: 0.99
 weight_decay: 0.1
@@ -40,7 +41,7 @@ bf16_full_eval: True # for deepspeed compat
 # ==============================
 # Gradient Checkpointing
 # ==============================
-gradient_checkpointing: False # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
+gradient_checkpointing: True # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
 gradient_checkpointing_kwargs:
     use_reentrant: False # [DO NOT CHANGE] I don't know how to explain this one. Just don't touch it.
 torch_empty_cache_steps: 1

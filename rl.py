@@ -1,10 +1,7 @@
 import asyncio
 from argparse import ArgumentParser
-from collections import defaultdict
 from datetime import datetime
-import math
 import os
-import re
 import requests
 import time
 
@@ -15,10 +12,8 @@ if USE_UNSLOTH:
     PatchFastRL("GRPO", FastLanguageModel) # first import
 
 from accelerate.logging import get_logger
-from aiohttp import ClientSession
 from beartype import beartype
 from datasets import Dataset
-import numpy as np
 import pandas as pd
 from transformers import (
     AutoModelForCausalLM,
@@ -26,29 +21,37 @@ from transformers import (
     HfArgumentParser,
     GenerationConfig,
 )
-import trl
 from trl import (
     GRPOConfig,
     GRPOTrainer, # until further notice we use a patched version
     ModelConfig,
     LogCompletionsCallback,
+    get_peft_config,
 )
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
-from grpo_trainer_patch import GRPOTrainerWithPatch
 from instruction_generator import get_instruction_generator
-from utils.train_config_dataclasses import SteerabilityProbeConfig, GoalspaceServerConfig, UnslothLoraConfig
-from utils.model_output_cleaner import clean_model_output, is_chat_completion_format
+from rewards import (
+    map_to_goalspace,
+    steerability_reward_wrapper,
+    format_reward_func,
+    english_only_reward_func,
+)
+from utils.train_config_dataclasses import (
+    SteerabilityProbeConfig,
+    GoalspaceServerConfig,
+    UnslothLoraConfig,
+    ExtraRewardKwargs,
+)
 
 from beartype.typing import List
 from typing import Optional, Union
 
 logger = get_logger(__name__, log_level="INFO")
-CHINESE_PATTERN = re.compile(r"[\u4E00-\u9FFF]")
 
 @beartype
 def prepare_steerability_probe(
-        probe_config: SteerabilityProbeConfig,
+        probe_config: SteerabilityProbeConfig, # TODO: generate a new sadness-surprise probe
         model_name: str,
     ) -> Dataset: # TODO: make configurable
     probe = pd.read_csv(probe_config.steerability_probe, index_col=0) # currently, we're using a static, pre-generated probe -- probably good to save goalspace mapping time
@@ -74,7 +77,7 @@ def prepare_steerability_probe(
         source_col = target_col.replace("target_", "source_")
         final_probe[target_col] = target_goals[target_col].fillna(source_goals[source_col]) # patch the probe 
 
-    final_probe["instructions"] = instruction_generator.sample_prompt(delta_goals, target_goals)
+    final_probe["instructions"] = instruction_generator.sample_prompt(delta_goals, target_goals) 
     final_probe["prompt"] = final_probe["instructions"] + "\n\n" + final_probe[probe_config.source_text_col]
     if probe_config.apply_conversational_format:
         final_probe["prompt"] = final_probe["prompt"].apply(
@@ -106,70 +109,6 @@ def await_server(port: Optional[int] = 12121, timeout: Optional[int] = 300):
         time.sleep(5)
     raise RuntimeError(f"❌ Goalspace-mapping server did not start within the time limit ({timeout} seconds).")
 
-async def send_request(
-        session: ClientSession,
-        texts: List[str],
-        goals: Optional[List[str]] = None,
-        port: Optional[int] = 12121
-    ):
-    inference_url = f"http://127.0.0.1:{port}/goalspace" # why stop here? We can even throw vLLM in here someday
-    payload = {"texts": texts}
-    if goals is not None:
-        payload["goals"] = goals
-    async with session.post(inference_url, json=payload) as response:
-        return await response.json()
-
-async def map_to_goalspace(
-        texts: Union[str, List[str]],
-        goals: Optional[List[str]] = None,
-        port: Optional[int] = 12121,
-        n_workers: Optional[int] = 4
-    ):
-    if isinstance(texts, str):
-        texts = [texts]
-    batch_size = math.ceil(len(texts) / n_workers)
-    text_batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
-    async with ClientSession() as session:
-        tasks = [send_request(session, batch, goals=goals, port=port) for batch in text_batches]
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-    merged_responses = defaultdict(list)
-    for response in responses:
-        for goal, mapping_values in response.items(): 
-            merged_responses[goal].extend(mapping_values)
-    return merged_responses
-    
-@beartype
-def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.ndarray]: # TODO: ortho penalty, miscalibration, variance reg.?
-    """
-        In order to allow for *literally anything* to be used as a goal-space mapper, we delegate goalspace-mapping to an 
-        external server and ping it with asyncio. This introduces some I/O overhead, yes, but `accelerate launch` + DeepSpeed ZeRO gets
-        very confused and frustrated when I pass in a wrapper class that includes other model wrapper classes that cache inputs/outputs...
-        goal-space mappings were not initially designed to be used directly as a reward model, so this is a happy medium (I think).
-    """
-    if is_chat_completion_format(completions):
-        completions = [completion[0]["content"] for completion in completions]
-    cleaned_completions = [clean_model_output(kwargs["model_name"][0], completion) for completion in completions]
-    mappings = asyncio.run(map_to_goalspace(cleaned_completions)) # this is z-hat
-    macro_negreward = np.zeros(len(cleaned_completions))
-    for goal, values in mappings.items():
-        macro_negreward += np.square(np.array(kwargs[f"target_{goal}"]) - np.array(values)) # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
-    rewards = (-np.sqrt(macro_negreward / len(mappings)) + 1) # normalize to [0, 1]; macro_negreward is in range [-sqrt(len(mappings), 0]
-    return rewards
-
-def format_reward_func(completions, **kwargs):
-    """Reward function that checks if the completion has a specific format."""
-    if is_chat_completion_format(completions):
-        completions = [completion[0]["content"] for completion in completions]
-    pattern = r"^<think>.*?</think>" # keep the deepseek format
-    matches = [re.match(pattern, content) for content in completions]
-    return [1.0 if match else 0.0 for match in matches]
-
-def english_only_reward_func(completions, **kwargs):
-    """most common language mixing is Chinese, so just detect + penalize"""
-    if is_chat_completion_format(completions):
-        completions = [completion[0]["content"] for completion in completions]
-    return [0.0 if CHINESE_PATTERN.search(content) else 1.0 for content in completions]
-
 def test_server(server_config: GoalspaceServerConfig, testing_text: str):
     print("Testing goalspace mapping server...")
     print("SOURCE:")
@@ -196,14 +135,39 @@ if __name__ == '__main__':
     base_parser.add_argument("--config", required=True)
     base_args, *_ = base_parser.parse_known_args()
 
-    parser = HfArgumentParser((
-        GRPOConfig,
-        ModelConfig,
-        SteerabilityProbeConfig,
-        GoalspaceServerConfig,
-        UnslothLoraConfig
-    ))
-    training_config, model_config, probe_config, server_config, unsloth_config = parser.parse_yaml_file(base_args.config)
+    if USE_UNSLOTH:
+        parser = HfArgumentParser((
+            GRPOConfig,
+            ModelConfig,
+            SteerabilityProbeConfig,
+            GoalspaceServerConfig,
+            ExtraRewardKwargs,
+            UnslothLoraConfig
+        ))
+        (
+            training_config,
+            model_config,
+            probe_config,
+            server_config,
+            reward_config,
+            unsloth_config, 
+        ) = parser.parse_yaml_file(base_args.config)
+    else:
+        parser = HfArgumentParser((
+            GRPOConfig,
+            ModelConfig,
+            SteerabilityProbeConfig,
+            GoalspaceServerConfig,
+            ExtraRewardKwargs,
+        ))
+        (
+            training_config,
+            model_config,
+            probe_config,
+            server_config,
+            reward_config,
+        ) = parser.parse_yaml_file(base_args.config)
+
 
     print("Preparing data...")
     dataset = prepare_steerability_probe(probe_config, model_config.model_name_or_path)
@@ -213,6 +177,15 @@ if __name__ == '__main__':
     reward_funcs = [steerability_reward_wrapper]
     if model_config.model_name_or_path.split("/")[0] == "deepseek-ai":
         reward_funcs += [format_reward_func, english_only_reward_func]
+    print("Reward functions:")
+    print(*[rf.__name__ for rf in reward_funcs], sep="\n")
+    print()
+    if reward_config.steering_goals is not None:
+        print("Steering goals:")
+        print(*reward_config.steering_goals, sep="\n")
+        print()
+
+    peft_config = get_peft_config(model_config) if not USE_UNSLOTH else None
 
     if USE_UNSLOTH:
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -233,7 +206,7 @@ if __name__ == '__main__':
             random_state=unsloth_config.unsloth_random_state,
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(model_config.model_name_or_path)
+        model = AutoModelForCausalLM.from_pretrained(model_config.model_name_or_path)   
         tokenizer = get_tokenizer(model_config)
 
     trainer = GRPOTrainer(
@@ -243,6 +216,8 @@ if __name__ == '__main__':
         args=training_config,
         train_dataset=dataset,
         eval_dataset=dataset, # generations can be done on the training data -- if it can't even overfit to training, how can it ever work on future eval datasets?
+        peft_config=peft_config, # GRPOTrainer does the get_peft_model for us
+        reward_extra_kwargs=vars(reward_config),
     )
     callbacks = [
         LogCompletionsCallback(
