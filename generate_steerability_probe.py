@@ -70,24 +70,26 @@ def generate_target_goals(shape: tuple, max_active_goals: Optional[int] = 3) -> 
     return valid_goal_mask
 
 @beartype
-def create_final_probe(
-        goalspace_df: pd.DataFrame,
-        steering_goals: Goalspace,
-        n_source_texts: int,
-        n_goals_per_text: int,
-        delta_min: Optional[float] = 0.1,
-        delta_max: Optional[float] = 0.7,
-        deadzone: Optional[float] = 0.1,
-        max_active_goals: Optional[int] = 3,
-        seed: Optional[int] = 42
-    ) -> pd.DataFrame:
+def get_subset(
+    goalspace_df: pd.DataFrame,
+    n_source_texts: int, 
+    n_goals_per_text: int,
+    seed: Optional[int] = 42,
+):
     text_subset = goalspace_df.sample(n=n_source_texts, weights=goalspace_df["sampling_weights"], replace=False, random_state=seed) # yes, sampling w/o replacement will introduce a slight amount of bias, but this will reduce issues where we repeatedly sample a super "rare" text
-
     text_subset = text_subset.loc[text_subset.index.repeat(n_goals_per_text)]
-    goal_names = ["source_" + name for name in steering_goals.get_goal_names(snake_case=True)]
-    source_goals = text_subset[goal_names].values
+    return text_subset   
 
-    # In the future, the below can be refactored into arbitrary target goal generator 
+@beartype
+def generate_deltas(
+    source_goals: np.ndarray,
+    delta_min: Optional[float] = 0.1,
+    delta_max: Optional[float] = 0.7,
+    deadzone: Optional[float] = 0.1,
+    max_active_goals: Optional[int] = 3,
+    seed: Optional[int] = 42,
+) -> np.ndarray:
+        # In the future, the below can be refactored into arbitrary target goal generator 
     lower_ranges = np.clip(source_goals - deadzone, 0, -delta_min - deadzone)
     upper_ranges = np.clip(1 - source_goals - deadzone, 0, delta_max - deadzone)
     all_ranges = lower_ranges + upper_ranges
@@ -116,11 +118,37 @@ def create_final_probe(
 
     # finally apply the goal mask from earlier
     final_deltas = np.ma.array(deltas, mask=valid_goal_mask)
+    return final_deltas
+
+@beartype
+def create_final_probe(
+        goalspace_df: pd.DataFrame,
+        steering_goals: Goalspace,
+        n_source_texts: int,
+        n_goals_per_text: int,
+        delta_min: Optional[float] = 0.1,
+        delta_max: Optional[float] = 0.7,
+        deadzone: Optional[float] = 0.1,
+        max_active_goals: Optional[int] = 3,
+        seed: Optional[int] = 42
+    ) -> pd.DataFrame:
+    text_subset = get_subset(goalspace_df, n_source_texts, n_goals_per_text, seed=seed)
+    goal_names = ["source_" + name for name in steering_goals.get_goal_names(snake_case=True)]
+    source_goals = text_subset[goal_names].values
+
+    deltas = generate_deltas(
+        source_goals,
+        delta_min=delta_min,
+        delta_max=delta_max,
+        deadzone=deadzone,
+        max_active_goals=max_active_goals,
+        seed=seed
+    )
     
     delta_cols = ["delta_" + name for name in steering_goals.get_goal_names(snake_case=True)]
     target_cols = ["target_" + name for name in steering_goals.get_goal_names(snake_case=True)]
-    text_subset[delta_cols] = final_deltas
-    text_subset[target_cols] = final_deltas + source_goals
+    text_subset[delta_cols] = deltas
+    text_subset[target_cols] = deltas + source_goals
     text_subset = text_subset.reset_index(names='original_index')
     return text_subset
 
@@ -150,18 +178,33 @@ if __name__ == '__main__':
     # cache = None
     # if args.cache_name is not None:
     #     cache = GoalspaceCache(args.cache_name)
-    goalspace_df = goalspace(dataset[args.text_col].tolist())
-    goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
+    goalspace_cols = goalspace.get_goal_names(snake_case=True)
+    normalized_cols = ["source_" + c for c in goalspace_cols]
+
+    if set(goalspace_cols).issubset(set(dataset.columns)):
+        print("Goal-space mappings detected; skipping recalculation.")
+        goalspace_df = dataset
+    else:
+        goalspace_df = goalspace(dataset[args.text_col].tolist())
+
+    if set(normalized_cols).issubset(set(dataset.columns)):
+        print("Normalized goal-space mappings detected; skipping recalculation.")
+    else:
+        goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
     
     if args.weighting_goals is None:
         weighting_goals = Goalspace(DEFAULT_GOALS)
     else:
         weighting_goals = Goalspace([GoalFactory.get_default(g) for g in args.weighting_goals])
 
-    goalspace_df["sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals)
-    if "sampling_weights" in dataset.columns:
-        dataset = dataset.drop("sampling_weights", axis=1)
-    goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
+    if "sampling_weights" not in dataset.columns:
+        goalspace_df["sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals)
+    else:
+        print("Sampling weights found; skipping weight calculation.")
+
+    # only concat if we needed to recompute goal-space mappings and sampling weights
+    if len(goalspace_df.columns) != len(dataset.columns): # kinda hacky, yes
+        goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
     steerability_probe = create_final_probe(
         goalspace_df,
         steering_goals=weighting_goals,

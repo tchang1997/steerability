@@ -122,7 +122,10 @@ def test_server(server_config: GoalspaceServerConfig, testing_text: str):
 
 def get_tokenizer(model_args):
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.model_name_or_path, padding_side="left", trust_remote_code=model_args.trust_remote_code
+        model_args.model_name_or_path,
+        padding_side="left",
+        trust_remote_code=model_args.trust_remote_code, 
+        revision=model_args.model_revision,
     )
     tokenizer.pad_token = tokenizer.eos_token 
     if tokenizer.chat_template is None:
@@ -206,7 +209,11 @@ if __name__ == '__main__':
             random_state=unsloth_config.unsloth_random_state,
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(model_config.model_name_or_path)   
+        print(f"Loading {model_config.model_name_or_path} from revision {model_config.model_revision}")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_config.model_name_or_path,
+            revision=model_config.model_revision,
+        )   
         tokenizer = get_tokenizer(model_config)
 
     trainer = GRPOTrainer(

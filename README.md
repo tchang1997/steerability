@@ -83,6 +83,14 @@ This step will evaluate goal-space mappings for texts (or retrieve them if they 
 python create_steerability_probe.py [--seed-data SEED_DATA_CSV] [--config CONFIG]
 ```
 
+To generate a custom steerability probe, you can do this:
+```
+python generate_steerability_probe.py --config config/probes/2d_steer_in_1d_uncorr.yml \
+    --seed-data data/default_seed_data.csv \
+    --goals sadness surprise \
+    --weighting-goals sadness surprise
+```
+
 ### Create a steerability report (Steps 4 and 5)
 
 This step will, given a configuration file and a prompting strategy, then run a steerability evaluation with an LLM + generate a report (plots).
@@ -93,7 +101,12 @@ python create_steerability_report.py --config [CONFIG] --api-config [API_KEY_FIL
 [--overwrite] [--nrows N_ROWS]
 ```
 
-Only the first two (experimental config and API config) are required. This will output a CSV with the raw "steerability data" (i.e., goalspace mappings of the LLM inputs and outputs), and generate plots. By default, the above command will both conduct a steerability evaluation and generate plots.
+Only the first two (experimental config and API config) are required. This will output a CSV with the raw "steerability data" (i.e., goalspace mappings of the LLM inputs and outputs).
+
+You can test to see if the prompt strategy generations instructions that meet your expectations as follows before running an entire probe:
+```
+python instruction_generator.py --probe data/steer_2d.csv --prompt-strategy direct
+```
 
 ### Future implementation
 
