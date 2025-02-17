@@ -1,9 +1,12 @@
 import asyncio
 from argparse import ArgumentParser
 from datetime import datetime
+from itertools import cycle, product
+import json
 import os
 import requests
 import time
+import warnings
 
 USE_UNSLOTH = os.environ.get("USE_UNSLOTH", False)
 
@@ -14,6 +17,7 @@ if USE_UNSLOTH:
 from accelerate.logging import get_logger
 from beartype import beartype
 from datasets import Dataset
+import numpy as np
 import pandas as pd
 from transformers import (
     AutoModelForCausalLM,
@@ -33,6 +37,7 @@ from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 from instruction_generator import get_instruction_generator
 from rewards import (
     map_to_goalspace,
+    REGISTRY,
     steerability_reward_wrapper,
     format_reward_func,
     english_only_reward_func,
@@ -41,19 +46,48 @@ from utils.train_config_dataclasses import (
     SteerabilityProbeConfig,
     GoalspaceServerConfig,
     UnslothLoraConfig,
-    ExtraRewardKwargs,
+    RewardConfig,
 )
 
-from beartype.typing import List
-from typing import Optional, Union
+from beartype.typing import Callable, List, Tuple
+from typing import Optional
 
 logger = get_logger(__name__, log_level="INFO")
+
+@beartype
+def get_reward_funcs(
+    reward_config: RewardConfig,
+    model_name: str,
+) -> Tuple[List[Callable], List[float]]:
+    reward_func_names = reward_config.rewards
+    reward_funcs = []
+    for name in reward_func_names:
+        if name in REGISTRY:
+            reward_funcs.append(REGISTRY[name])
+        else:
+            warnings.warn(f"Reward function {name} is not registered in rewards.py; skipping. Valid rewards are: {list(REGISTRY.keys())}") 
+    
+    if model_name.split("/")[0] == "deepseek-ai":
+        reward_funcs
+        reward_funcs.append(REGISTRY["english_only"])
+
+    baseline_weights = [1] * len(reward_funcs)
+    eval_reward_names = reward_config.eval_rewards
+    for name in eval_reward_names:
+        if name in REGISTRY:
+            reward_funcs.append(REGISTRY[name])
+        else:
+            warnings.warn(f"Reward function {name} is not registered in rewards.py; skipping. Valid rewards are: {list(REGISTRY.keys())}") 
+    
+    eval_weights = [0] * len(eval_reward_names) # weighting = 0 -> rewards will be logged during training but not optimized
+    return reward_funcs, baseline_weights + eval_weights
+
 
 @beartype
 def prepare_steerability_probe(
         probe_config: SteerabilityProbeConfig, # TODO: generate a new sadness-surprise probe
         model_name: str,
-    ) -> Dataset: # TODO: make configurable
+    ) -> Tuple[Dataset, Dataset]: # TODO: make configurable
     probe = pd.read_csv(probe_config.steerability_probe, index_col=0) # currently, we're using a static, pre-generated probe -- probably good to save goalspace mapping time
     source_text_idx = probe[probe_config.source_text_id_col] \
         .drop_duplicates() \
@@ -89,8 +123,50 @@ def prepare_steerability_probe(
     final_probe["model_name"] = model_name # ...I don't want to talk about this HACK
     print("Final probe length:", len(final_probe))
     print("Columns:", final_probe.columns)
+
+    # create eval dataset
+    eval_probe = final_probe.iloc[:probe_config.num_prompts_for_eval] # non-random currently
+    if probe_config.canary_file is not None:
+
+        with open(probe_config.canary_file, "r", encoding="utf-8") as f:
+            canaries = json.load(f)
+        
+        n_steering_goals = delta_goals.shape[1] # to use for sampling later on
+
+        canary_deltas = []
+        for col in delta_goals.columns:
+            row_positive = {c: np.nan for c in delta_goals.columns}
+            row_negative = {c: np.nan for c in delta_goals.columns}
+            row_positive[col] = probe_config.canary_goal_magnitude
+            row_negative[col] = -probe_config.canary_goal_magnitude
+            canary_deltas.append(row_positive)
+            canary_deltas.append(row_negative)
+        canary_instructions = instruction_generator.sample_prompt(
+            pd.DataFrame(canary_deltas, columns=delta_goals.columns), # uh. yeah. let's refactor later.
+            None
+        )
+        canary_data = []
+        for (canary, instruction), inst_deltas in zip(product(canaries, canary_instructions), cycle(canary_deltas)):
+            prompt = instruction + "\n\n" + canary
+            if probe_config.apply_conversational_format:
+                prompt = [{
+                    'role': 'user',
+                    'content': prompt,
+                }]
+            base_dict = {
+                "text": canary,
+                "instructions": instruction,
+                "prompt": prompt,
+                "model_name": model_name,
+            }
+            base_dict.update(inst_deltas)
+            canary_data.append(base_dict)
+        canary_df = pd.DataFrame(canary_data)
+        eval_probe = pd.concat([eval_probe, canary_df], axis=0, ignore_index=True)
+
     dataset = Dataset.from_pandas(final_probe)
-    return dataset
+    eval_dataset = Dataset.from_pandas(eval_probe)
+    return dataset, eval_dataset
 
 def await_server(port: Optional[int] = 12121, timeout: Optional[int] = 300):
     url = f"http://127.0.0.1:{port}/health"
@@ -143,7 +219,7 @@ if __name__ == '__main__':
             ModelConfig,
             SteerabilityProbeConfig,
             GoalspaceServerConfig,
-            ExtraRewardKwargs,
+            RewardConfig,
             UnslothLoraConfig
         ))
         (
@@ -160,7 +236,7 @@ if __name__ == '__main__':
             ModelConfig,
             SteerabilityProbeConfig,
             GoalspaceServerConfig,
-            ExtraRewardKwargs,
+            RewardConfig,
         ))
         (
             training_config,
@@ -172,13 +248,14 @@ if __name__ == '__main__':
 
 
     print("Preparing data...")
-    dataset = prepare_steerability_probe(probe_config, model_config.model_name_or_path)
+    dataset, eval_dataset = prepare_steerability_probe(probe_config, model_config.model_name_or_path)
     test_server(server_config, dataset[probe_config.source_text_col][0])
 
     print("Preparing trainer...")
-    reward_funcs = [steerability_reward_wrapper]
-    if model_config.model_name_or_path.split("/")[0] == "deepseek-ai":
-        reward_funcs += [format_reward_func, english_only_reward_func]
+    reward_funcs = get_reward_funcs(model_config, model_config.model_name_or_path)
+    #reward_funcs = [steerability_reward_wrapper]
+    #if model_config.model_name_or_path.split("/")[0] == "deepseek-ai":
+    #    reward_funcs += [format_reward_func, english_only_reward_func]
     print("Reward functions:")
     print(*[rf.__name__ for rf in reward_funcs], sep="\n")
     print()
@@ -221,14 +298,13 @@ if __name__ == '__main__':
         reward_funcs=reward_funcs,
         args=training_config,
         train_dataset=dataset,
-        eval_dataset=dataset, # generations can be done on the training data -- if it can't even overfit to training, how can it ever work on future eval datasets?
+        eval_dataset=eval_dataset, # generations can be done on the training data -- if it can't even overfit to training, how can it ever work on future eval datasets?
         peft_config=peft_config, # GRPOTrainer does the get_peft_model for us
         reward_extra_kwargs=vars(reward_config),
     )
     callbacks = [
         LogCompletionsCallback(
             trainer=trainer,
-            num_prompts=8,
             freq=1,
             generation_config=GenerationConfig(
                 max_new_tokens=training_config.max_completion_length,

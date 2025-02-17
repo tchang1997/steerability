@@ -16,7 +16,7 @@ temperature: 0.6
 # Model/training args
 # ==============================
 attn_implementation: "flash_attention_2"
-learning_rate: 5.0e-6
+learning_rate: 5.0e-4 # seems standard to increase
 lr_scheduler_type: "cosine"
 adam_beta1: 0.9
 adam_beta2: 0.99
@@ -76,6 +76,8 @@ steerability_probe: "./data/steer_1d_in_2d.csv"
 n_source_texts: 1
 instructions_per_text: 16
 apply_conversational_format: True
+num_prompts_for_eval: 8
+canary_file: "./data/2d_canaries.json"
 # ==============================
 # Goals to optimize
 # ==============================

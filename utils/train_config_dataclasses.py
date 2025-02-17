@@ -41,6 +41,18 @@ class SteerabilityProbeConfig:
         default="direct",
         metadata={"help": "Prompt strategy (see `instruction_generatory.py`) for generating instructions from goalspace vectors."}
     )
+    num_prompts_for_eval: int = field(
+        default=6,
+        metadata={"help": "Number of training instructions used for evaluation between epochs."}
+    )
+    canary_file: str = field(
+        default=None,
+        metadata={"help": "File containing lists of strings for evaluating completions only."}
+    )
+    canary_goal_magnitude: float = field(
+        default=0.3,
+        metadata={"help": "Magnitude of dummy goals given for manipulating canary texts."}
+    )
 
 @dataclass
 class GoalspaceServerConfig:
@@ -68,7 +80,15 @@ class UnslothLoraConfig:
     )
 
 @dataclass
-class ExtraRewardKwargs:
+class RewardConfig:
+    rewards: List[str] = field(
+        default=[],
+        metadata={"help": "List of rewards to optimize for. See rewards.REGISTRY."}
+    )
+    eval_rewards: List[str] = field(
+        default=[],
+        metadata={"help": "List of rewards to evaluate during training only, but not optimize. See rewards.REGISTRY for a full list."}
+    )
     steering_goals: Optional[List[str]] = field(
         default=None,
         metadata={"help": "List of goals to run. Ping endpoint /goals on goalspace server to get a list."}

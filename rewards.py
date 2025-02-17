@@ -60,6 +60,14 @@ async def map_to_goalspace(
             merged_responses[goal].extend(mapping_values)
     return merged_responses
 
+
+def get_mappings(completions, model_name):
+    if is_chat_completion_format(completions):
+        completions = [completion[0]["content"] for completion in completions]
+    cleaned_completions = [clean_model_output(model_name, completion) for completion in completions]
+    mappings = asyncio.run(map_to_goalspace(cleaned_completions)) # this is cheap due to server-side caching
+    return mappings
+
 @beartype
 def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.ndarray]: # TODO: ortho penalty, miscalibration, variance reg.?
     """
@@ -68,11 +76,9 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         very confused and frustrated when I pass in a wrapper class that includes other model wrapper classes that cache inputs/outputs...
         goal-space mappings were not initially designed to be used directly as a reward model, so this is a happy medium (I think).
     """
-    if is_chat_completion_format(completions):
-        completions = [completion[0]["content"] for completion in completions]
-    cleaned_completions = [clean_model_output(kwargs["model_name"][0], completion) for completion in completions]
-    mappings = asyncio.run(map_to_goalspace(cleaned_completions)) # this is z-hat
-    macro_negreward = np.zeros(len(cleaned_completions))
+    # this is z-hat
+    mappings = get_mappings(completions, kwargs["model_name"][0])
+    macro_negreward = np.zeros(len(completions))
     for goal, values in mappings.items():
         if isinstance(kwargs["steering_goals"], list):
             if goal not in kwargs["steering_goals"]:
@@ -82,6 +88,42 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         macro_negreward += sq_goal_err # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
     rewards = (-np.sqrt(macro_negreward / len(mappings)) + 1) # normalize to [0, 1]; macro_negreward is in range [-sqrt(len(mappings), 0]
     return rewards
+
+def orthogonality_wrapper(completions, **kwargs):
+    mappings = get_mappings(completions, kwargs["model_name"][0])
+    z_star = np.array([kwargs[f"target_{goal}"] for goal in mappings.keys()]).T 
+    z_0 = np.array([kwargs[f"target_{goal}"] for goal in mappings.keys()]).T 
+    z_hat = np.array([mappings[goal] for goal in mappings.keys()]).T
+     
+    # (z_star - z_hat) -> oproj (z_hat - z_0) 
+    dot_product = np.sum((z_hat - z_0) * (z_star - z_hat), axis=1) 
+    norm_sq_A = np.sum(np.square(z_hat - z_0), axis=1)  
+    norm_sq_B = np.sum(np.square(z_star - z_hat), axis=1)
+    proj_sq = (dot_product ** 2) / norm_sq_A
+    rejection = np.sqrt(norm_sq_B - proj_sq)
+
+    # -> what % of movement was wasted
+    if kwargs.get("normalize", False):
+        rejection /= np.linalg.norm(z_hat - z_0, axis=1)
+    return rejection
+
+def miscalibration_wrapper(completions, **kwargs):
+    mappings = get_mappings(completions, kwargs["model_name"][0])
+    z_star = np.array([kwargs[f"target_{goal}"] for goal in mappings.keys()]).T 
+    z_0 = np.array([kwargs[f"target_{goal}"] for goal in mappings.keys()]).T 
+    z_hat = np.array([mappings[goal] for goal in mappings.keys()]).T
+
+    # (z_star - z_hat) -> proj (z_star - z_0) 
+    dot_product = np.sum((z_star - z_0) * (z_star - z_hat), axis=1) 
+    norm_A = np.linalg.norm(z_star - z_0, axis=1)  
+
+    # Compute scalar projection (absolute value)
+    scalar_projection = np.abs(dot_product / norm_A)
+    # -> what % of goal is left to go
+    if kwargs.get("normalize", False):
+        scalar_projection /= np.linalg.norm(z_star - z_0, axis=1)
+    return scalar_projection
+    
 
 def format_reward_func(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
@@ -96,3 +138,11 @@ def english_only_reward_func(completions, **kwargs):
     if is_chat_completion_format(completions):
         completions = [completion[0]["content"] for completion in completions]
     return [0.0 if CHINESE_PATTERN.search(content) else 1.0 for content in completions]
+
+REGISTRY = {
+    "steerability_error": steerability_reward_wrapper,
+    "miscalibration": miscalibration_wrapper,
+    "orthogonality": orthogonality_wrapper,
+    "think_format": format_reward_func,
+    "english_only": english_only_reward_func,
+}

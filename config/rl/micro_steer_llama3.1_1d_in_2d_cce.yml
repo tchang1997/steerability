@@ -2,21 +2,21 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/llama_3.1_micro_steer_grpo_1in2d_n1_i16_full_ft/"
-run_name: "llama3.1_micro_steer_grpo_1in2d_n1_i16_full_ft"
+output_dir: "/data2/ctrenton/llm/llama_3.1_micro_steer_grpo_1in2d_n1_i16/"
+run_name: "llama3.1_micro_steer_grpo_1in2d_n1_i16"
 remove_unused_columns: False
 # ==============================
 # Default generation args
 # ==============================
 max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
 max_completion_length: 2048 # [MAXED] to give room for <think>ing
-num_generations: 16 # [MAXED] llama 3.1. I have no idea how I fit this on 1 gpu
+num_generations: 16 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
 temperature: 0.6 
 # ==============================
 # Model/training args
 # ==============================
 attn_implementation: "flash_attention_2"
-learning_rate: 5.0e-6
+learning_rate: 5.0e-4 # seems standard to increase
 lr_scheduler_type: "cosine"
 adam_beta1: 0.9
 adam_beta2: 0.99
@@ -29,9 +29,23 @@ gradient_accumulation_steps: 4
 num_train_epochs: 32
 beta: 0.04 # anneal?
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
+use_cut_cross_entropy: True
 # dtyping
 bf16: True
 bf16_full_eval: True # for deepspeed compat
+# LoRA
+use_peft: True
+lora_r: 16
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules: 
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
 logit_computation_mini_batch_size: 2
 # checkpointing, saving, and logging
 # ==============================
