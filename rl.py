@@ -89,7 +89,6 @@ def prepare_steerability_probe(
     final_probe["model_name"] = model_name # ...I don't want to talk about this HACK
     print("Final probe length:", len(final_probe))
     print("Columns:", final_probe.columns)
-
     dataset = Dataset.from_pandas(final_probe)
     return dataset
 

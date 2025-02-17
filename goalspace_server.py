@@ -10,7 +10,7 @@ yaml = YAML(typ="safe")
 
 from goals import DEFAULT_GOALS, Goalspace
 
-GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache.json") # ugh, this will be slow....optimize the __call__ fn soon. Also, can we configure so it's not always DEFAULT_GOALS?
+GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v2.json") 
 with open("config/seed_data/magic_numbers.yml", "r") as f:
     NORMALIZATION = yaml.load(f)
 

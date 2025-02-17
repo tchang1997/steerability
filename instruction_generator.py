@@ -16,7 +16,8 @@ from typing import Any, Optional
     prompt into some database file, which can then be extended.
 """
 NO_EXPLAIN = " Respond with only the rewritten text and do not explain your response."
-DISAMBIG = " You must keep the tone of the text and other aspects of the text the same as the original unless explicitly instructed otherwise."
+DISAMBIG = " You MUST not change anything else about the other parts of the text, even if it makes the rewritten text sound unnatural or otherwise awkward."
+# " You must keep the tone of the text and other aspects of the text the same as the original unless explicitly instructed otherwise."
 MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
 LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
 GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
