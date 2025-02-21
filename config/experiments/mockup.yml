@@ -1,8 +1,0 @@
-probe: "data/steerbench_converted.csv"
-prompt_strategy: "goal_enum"
-llm_settings:
-    llm_name: "gpt-none"
-    chat_type: "mockup"
-    cache_file: "mockup.tsv"
-experiment_name: "mockup"
-seed: 42

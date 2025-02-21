@@ -16,6 +16,9 @@ artifacts/
 # no figures for now
 *.pdf
 *.svg
+*.html
+*.gif
+gifs/
 
 *.log
 

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "steerability"
+version = "0.1.0"
+description = "Steerability probes and training for large language models."
+authors = [{ name = "Trenton Chang", email = "ctrenton@umich.edu" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beartype==0.15.0",
+    "convokit==3.0.0",
+    "datasets==3.2.0",
+    "detoxify==0.5.2",
+    "matplotlib==3.10.0",
+    "nltk==3.9.1",
+    "numpy==1.26.4",
+    "pandas",
+    "protobuf==5.29.3",
+    "sammo==0.3.2",
+    "scikit-learn==1.6.1",
+    "spacy",
+    "spacy-transformers",
+    "taaled==0.32",
+    "textstat==0.7.4",
+    "torch==2.5.1",
+    "tqdm",
+    "transformers",
+    "ruamel.yaml==0.18.10",
+    "vllm==0.7.2",
+    "wandb==0.19.6",
+]
+
+[tool.setuptools]
+packages = ["steerability"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-dir]
+"" = "src"

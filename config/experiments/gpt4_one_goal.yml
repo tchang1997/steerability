@@ -1,8 +1,0 @@
-probe: "data/steerbench_one_goal.csv"
-prompt_strategy: "direct"
-llm_settings:
-    llm_name: "gpt-4-turbo"
-    chat_type: "openai"
-    cache_file: "gpt4_oai.tsv"
-experiment_name: "gpt4_one_goal"
-seed: 42

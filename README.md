@@ -1,8 +1,12 @@
 # Measuring Steerability In LLMs
 
-This repository implements steerability probes and provides steerability reports for LLMs. It also provides the means to make your own steerability probes. This steerability evaluation is meant to evaluate the output-behavior of LLMs. It implements the steerability measurement framework introduced in ["Measuring Steerability in Large Language Models."](https://openreview.net/forum?id=y2J5dAqcJW)
+This repository implements steerability probes and provides steerability reports for LLMs. It also provides the means to make your own steerability probes. This steerability evaluation is meant to evaluate the output-behavior of LLMs. It implements the steerability measurement framework introduced in ["Measuring Steerability in Large Language Models."](https://openreview.net/forum?id=y2J5dAqcJW) and provides basic utilities for training models to be more steerable. 
 
 Note this is very early-stage work and will change in the future. This work was partially done as a research intern at Microsoft Research.
+
+## Steerability Tuning
+
+[UNDER CONSTRUCTION]
 
 ## Steerability Reports
 
