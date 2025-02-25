@@ -22,6 +22,8 @@ MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disg
 LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
 GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
 
+DEEPSEEK_SOMETIMES_SECTION_BREAK = "\n---\n\n"
+
 @beartype
 def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = None, prompter_kwargs: Optional[Dict[str, Any]] = None):
     if prompt_strategy == "direct":
@@ -70,11 +72,15 @@ class InstructionGenerator(object):
         resp: str,
     ):
         lines = resp.split("\n")
+        if len(lines) == 1: 
+            return resp # generally, line breaks will appear between "sure, here's XYZ" and the text IF applicable
         if "here" in lines[0].lower() and "rewritten" in lines[0].lower(): # hack -- empirically, all instances of an initial "ok, here's X" we've seen follow this format 
             resp_clean = "\n".join(lines[1:])
         else:
             resp_clean = resp
-        # now, remove DeepSeek-R1's thinking tokens
+
+        if resp_clean.startswith(DEEPSEEK_SOMETIMES_SECTION_BREAK):
+            resp_clean = resp_clean[len(DEEPSEEK_SOMETIMES_SECTION_BREAK):] 
 
         return resp_clean
 

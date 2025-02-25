@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/llama_3.1_micro_steer_grpo_1in2d_n1_i16_cce_lora_v2_2xlr/"
-run_name: "llama3.1_micro_steer_grpo_1in2d_n1_i16_cce_lora_v2_2xlr"
+output_dir: "/data2/ctrenton/llm/llama_3.1_micro_steer_grpo_unsloth/"
+run_name: "llama3.1_micro_steer_grpo_1in2d_n1_i16_unsloth"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -17,23 +17,20 @@ temperature: 0.6
 # ==============================
 attn_implementation: "flash_attention_2"
 learning_rate: 1.0e-4 # seems standard to increase
-optim: "paged_adamw_8bit"
 lr_scheduler_type: "cosine"
+optim: "paged_adamw_8bit"
 adam_beta1: 0.9
 adam_beta2: 0.99
 weight_decay: 0.1
 warmup_ratio: 0.1
 logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
-per_device_train_batch_size: 16 # num_generations * old batch size
+per_device_train_batch_size: 16
 per_device_eval_batch_size: 1
 gradient_accumulation_steps: 4
 num_train_epochs: 32
 beta: 0.04 # anneal?
-model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
-use_cut_cross_entropy: True # -- it wasn't really faster
-# dtyping
-bf16: True
-bf16_full_eval: True # for deepspeed compat
+model_name_or_path: "unsloth/Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit"
+load_in_4bit: True
 # LoRA
 use_peft: True
 lora_r: 16
@@ -48,11 +45,12 @@ lora_target_modules:
     - "up_proj"
     - "down_proj"
 logit_computation_mini_batch_size: 4
+lora_adapter_name: "steering_1d_in_2d"
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
 # ==============================
-gradient_checkpointing: True # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
+gradient_checkpointing: "unsloth" # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
 gradient_checkpointing_kwargs:
     use_reentrant: False # [DO NOT CHANGE] I don't know how to explain this one. Just don't touch it.
 torch_empty_cache_steps: 1
@@ -89,7 +87,7 @@ steering_goals: # extra reward kwargs will be passed to the reward funcs
 rewards:
     - "steerability_error"
 eval_rewards:
-    - "miscalibration" # weight zero
+    - "miscalibration"
     - "orthogonality"
 normalize_ortho: True
 normalize_miscal: True

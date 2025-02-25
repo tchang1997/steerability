@@ -142,7 +142,7 @@ class LLMInteractor(object):
         for raw_resp in outputs.outputs.llm_responses: 
             try:
                 clean_resp = clean_model_output(self.llm_name, raw_resp[0]) # by default, only return one response
-                clean_resp = self.instruction_generator.clean_response(clean_resp) # TODO: potentially add a model-specific response as well -- note these aren't perfect, do spot checks
+                clean_resp = self.instruction_generator.clean_response(clean_resp) 
                 raw_output.append(raw_resp[0])
                 final_output.append(clean_resp)
             except Exception as e:
@@ -171,6 +171,7 @@ class LLMInteractor(object):
             prompts = pd.Series(prompts, name="instruction")
         raw_inputs = prompts.str.cat(probe["text"], sep=self.inst_context_delimiter)
         llm_outputs = self.call_llm(raw_inputs, verbose=verbose)
+
         goalspace = Goalspace.create_default_goalspace_from_probe(probe)
         goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
         out_normed = renormalize_goalspace(seed_data, goalspace_out)

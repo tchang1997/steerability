@@ -12,7 +12,6 @@ USE_UNSLOTH = os.environ.get("USE_UNSLOTH", False)
 
 if USE_UNSLOTH:
     from unsloth import FastLanguageModel, PatchFastRL
-    PatchFastRL("GRPO", FastLanguageModel) # first import
 
 from accelerate.logging import get_logger
 from beartype import beartype
@@ -274,13 +273,17 @@ if __name__ == '__main__':
     peft_config = get_peft_config(model_config) if not USE_UNSLOTH else None
 
     if USE_UNSLOTH:
+        model_name = model_config.model_name_or_path 
+        if model_name.split("/")[0] != "unsloth":
+            warnings.warn("USE_UNSLOTH is True but an unsloth model was not passed to the config.")
         model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name =model_config.model_name_or_path,
+            model_name = model_name,
             max_seq_length=training_config.max_prompt_length + training_config.max_completion_length,
             load_in_4bit=model_config.load_in_4bit, 
             fast_inference=training_config.use_vllm, # Enable vLLM fast inference
             max_lora_rank=model_config.lora_r,
             gpu_memory_utilization=training_config.vllm_gpu_memory_utilization, # Reduce if out of memory
+            float8_kv_cache=unsloth_config.float8_kv_cache,
         )
         model = FastLanguageModel.get_peft_model(
             model,

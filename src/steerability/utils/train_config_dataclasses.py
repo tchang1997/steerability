@@ -80,6 +80,10 @@ class UnslothLoraConfig:
         default="unsloth",
         metadata={"help": "Gradient checkpointing mode for unsloth PeFT. Supports `unsloth` option in addition to bools for long-context training."}
     )
+    float8_kv_cache: bool = field(
+        default=False,
+        metadata={"help": "Whether to use a float8 KV cache in vLLM."}
+    )
 
 @dataclass
 class RewardConfig:
