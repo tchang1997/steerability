@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from functools import lru_cache
 import math
 import re
 
@@ -9,7 +10,7 @@ import numpy as np
 from utils.model_output_cleaner import clean_model_output, is_chat_completion_format
 
 from beartype import beartype
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 CHINESE_PATTERN = re.compile(r"[\u4E00-\u9FFF]")
 
@@ -40,7 +41,6 @@ async def send_request(
             retries += 1
     print("Max retries reached. Server did not restart in time.")
 
-
 async def map_to_goalspace(
         texts: Union[str, List[str]],
         goals: Optional[List[str]] = None,
@@ -60,15 +60,20 @@ async def map_to_goalspace(
             merged_responses[goal].extend(mapping_values)
     return merged_responses
 
-
-def get_mappings(completions, model_name):
-    if is_chat_completion_format(completions):
-        completions = [completion[0]["content"] for completion in completions]
+@lru_cache(maxsize=4096)
+def get_mappings(completions: tuple[str, ...], model_name: str):
+    completions = list(completions)
     cleaned_completions = [clean_model_output(model_name, completion) for completion in completions]
     mappings = asyncio.run(map_to_goalspace(cleaned_completions)) # this is cheap due to server-side caching
     return mappings
 
-@beartype
+# can we cache somehow? overhead is probably small though since tuple() uses shallow copy
+def prepare_completions_for_goalspace(completions: List[Any]) -> tuple[str]:
+    if is_chat_completion_format(completions):
+        completions = [completion[0]["content"] for completion in completions]
+    completions_tuple = tuple(completions)
+    return completions_tuple
+
 def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.ndarray]: # TODO: ortho penalty, miscalibration, variance reg.?
     """
         In order to allow for *literally anything* to be used as a goal-space mapper, we delegate goalspace-mapping to an 
@@ -77,20 +82,21 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         goal-space mappings were not initially designed to be used directly as a reward model, so this is a happy medium (I think).
     """
     # this is z-hat
-    mappings = get_mappings(completions, kwargs["model_name"][0])
+    completions_tuple = prepare_completions_for_goalspace(completions)
+    mappings = get_mappings(completions_tuple, kwargs["model_name"][0])
     macro_negreward = np.zeros(len(completions))
     for goal, values in mappings.items():
         if isinstance(kwargs["steering_goals"], list):
             if goal not in kwargs["steering_goals"]:
                 continue
         sq_goal_err = np.square(np.array(kwargs[f"target_{goal}"]) - np.array(values))
-        #print(f"MSE (goal: {goal}): {sq_goal_err.mean():.3f}")
         macro_negreward += sq_goal_err # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
     rewards = (-np.sqrt(macro_negreward / len(mappings)) + 1) # normalize to [0, 1]; macro_negreward is in range [-sqrt(len(mappings), 0]
     return rewards
 
 def orthogonality_wrapper(completions, **kwargs):
-    mappings = get_mappings(completions, kwargs["model_name"][0])
+    completions_tuple = prepare_completions_for_goalspace(completions)
+    mappings = get_mappings(completions_tuple, kwargs["model_name"][0])
     goals_to_evaluate = mappings.keys() if not isinstance(kwargs["steering_goals"], list) else kwargs["steering_goals"]
     z_star = np.array([kwargs[f"target_{goal}"] for goal in goals_to_evaluate]).T 
     z_0 = np.array([kwargs[f"source_{goal}"] for goal in goals_to_evaluate]).T 
@@ -100,15 +106,16 @@ def orthogonality_wrapper(completions, **kwargs):
     dot_product = np.sum((z_star - z_0) * (z_star - z_hat), axis=1) 
     norm_sq_A = np.sum(np.square(z_star - z_0), axis=1)  
     norm_sq_B = np.sum(np.square(z_star - z_hat), axis=1)
-    proj_sq = (dot_product ** 2) / norm_sq_A
+    proj_sq = np.clip((dot_product ** 2) / (norm_sq_A + 1e-8), 0, 1) # don't divide by zero when model regurgitates same text. dot product will be zero in this case anyway
     rejection = np.sqrt(norm_sq_B - proj_sq)
     # -> what % of movement was wasted
     if kwargs.get("normalize_ortho", False):
-        rejection /= np.linalg.norm(z_hat - z_0, axis=1)
+        rejection = np.clip(rejection / (np.linalg.norm(z_hat - z_0, axis=1) + 1e-8), 0, 1)
     return -rejection
 
 def miscalibration_wrapper(completions, **kwargs):
-    mappings = get_mappings(completions, kwargs["model_name"][0])
+    completions_tuple = prepare_completions_for_goalspace(completions)
+    mappings = get_mappings(completions_tuple, kwargs["model_name"][0])
     goals_to_evaluate = mappings.keys() if not isinstance(kwargs["steering_goals"], list) else kwargs["steering_goals"]
     z_star = np.array([kwargs[f"target_{goal}"] for goal in goals_to_evaluate]).T 
     z_0 = np.array([kwargs[f"source_{goal}"] for goal in goals_to_evaluate]).T 
@@ -123,7 +130,23 @@ def miscalibration_wrapper(completions, **kwargs):
     if kwargs.get("normalize_miscal", False):
         scalar_projection /= norm_A
     return -scalar_projection
+
+def get_goal_neg_abs_err(completions, goal_name, **kwargs):
+    completions_tuple = prepare_completions_for_goalspace(completions)
+    mappings = get_mappings(completions_tuple, kwargs["model_name"][0]) 
+    return np.abs(np.array(kwargs[f"target_{goal_name}"]) - np.array(mappings[goal_name]))
     
+def get_reading_difficulty_err(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "reading_difficulty", **kwargs)
+
+def get_text_length_err(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "text_length", **kwargs)
+
+def get_joy_err(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "joy", **kwargs)
+
+def get_surprise_err(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "surprise", **kwargs)
 
 def format_reward_func(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
@@ -145,4 +168,8 @@ REGISTRY = {
     "orthogonality": orthogonality_wrapper,
     "think_format": format_reward_func,
     "english_only": english_only_reward_func,
+    "rd_error": get_reading_difficulty_err,
+    "tl_error": get_text_length_err,
+    "j_error": get_joy_err,
+    "su_error": get_surprise_err,
 }

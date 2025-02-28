@@ -92,9 +92,9 @@ rewards:
 eval_rewards:
     - "miscalibration" # weight zero
     - "orthogonality"
-    - "get_reading_difficulty_err"
-    - "get_text_length_err"
-    - "get_joy_err"
-    - "get_surprise_err"
+    - "rd_error"
+    - "tl_error"
+    - "j_error"
+    - "su_error"
 normalize_ortho: True
 normalize_miscal: True
