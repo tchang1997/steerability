@@ -164,12 +164,6 @@ METRIC_NOUN_PHRASES = [
     "sadness",
     "surprise",
     "diversity of the text",
-    "", # toxic -- unused
-    "",
-    "",
-    "",
-    "",
-    "",
     "verbosity of the text"
 ]
 class DirectGranularTemplateInstruction(InstructionGenerator):
@@ -180,9 +174,16 @@ class DirectGranularTemplateInstruction(InstructionGenerator):
 
     def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
         instructions = []
+        goal_names = deltas.columns.str.replace("delta_", "")
+        delta_arr = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values)) # mask = invalid value; i.e., goal is inactive
+
+        masked_goal_array = np.ma.array(
+                np.repeat(self.metric_names[None, :], len(delta_arr), axis=0),
+                mask=delta_arr.mask
+            )
         for i in range(len(deltas)):
             intents = []
-            for intent, val in zip(self.metric_names[~deltas[i].mask], deltas[i].compressed()):
+            for intent, val in zip(masked_goal_array[i].compressed(), delta_arr[i].compressed()):
                 intent_str = None
                 if val < 0:
                     intent_str = f"\t- Decrease "
@@ -201,6 +202,7 @@ class DirectGranularTemplateInstruction(InstructionGenerator):
             if no_explain:
                 instruction += NO_EXPLAIN # prompt hack :/
             instructions.append(instruction)
+
         return instructions
     
 class DirectUnderspecifiedInstruction(InstructionGenerator):

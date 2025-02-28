@@ -37,9 +37,6 @@ from instruction_generator import get_instruction_generator
 from rewards import (
     map_to_goalspace,
     REGISTRY,
-    steerability_reward_wrapper,
-    format_reward_func,
-    english_only_reward_func,
 )
 from utils.train_config_dataclasses import (
     SteerabilityProbeConfig,
@@ -92,14 +89,15 @@ def prepare_steerability_probe(
     probe = pd.read_csv(probe_config.steerability_probe, index_col=0) # currently, we're using a static, pre-generated probe -- probably good to save goalspace mapping time
     source_text_idx = probe[probe_config.source_text_id_col] \
         .drop_duplicates() \
-        .sample(n=probe_config.n_source_texts, random_state=probe_config.probe_sampling_seed)
+        .sample(n=probe_config.n_source_texts, random_state=probe_config.probe_sampling_seed, replace=False) # sampling w/o replacement may induce some bias as well
     print("Texts selected:", source_text_idx.tolist())
     probe_subset = probe[probe[probe_config.source_text_id_col].isin(source_text_idx)]
 
     final_probe = probe_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
         lambda x: x.sample(
             n=min(len(x), probe_config.instructions_per_text),
-            random_state=probe_config.probe_sampling_seed
+            random_state=probe_config.probe_sampling_seed,
+            replace=False,
         )
     ).reset_index(drop=True)
 
@@ -112,7 +110,7 @@ def prepare_steerability_probe(
         source_col = target_col.replace("target_", "source_")
         final_probe[target_col] = target_goals[target_col].fillna(source_goals[source_col]) # patch the probe 
 
-    final_probe["instructions"] = instruction_generator.sample_prompt(delta_goals, target_goals) 
+    final_probe["instructions"] = instruction_generator.sample_prompt(delta_goals, target_goals, disambig=True) 
     final_probe["prompt"] = final_probe["instructions"] + "\n\n" + final_probe[probe_config.source_text_col]
     if probe_config.apply_conversational_format:
         final_probe["prompt"] = final_probe["prompt"].apply(
@@ -124,16 +122,16 @@ def prepare_steerability_probe(
     final_probe["model_name"] = model_name # ...I don't want to talk about this HACK
     print("Final probe length:", len(final_probe))
     print("Columns:", final_probe.columns)
+    min_wt, max_wt = final_probe["sampling_weights_mean"].min(), final_probe["sampling_weights_mean"].max()
+    print(f"Sampling weights range from ({min_wt}, {max_wt})")
 
     # create eval dataset
     eval_probe = final_probe.iloc[:probe_config.num_prompts_for_eval] # non-random currently
     if probe_config.canary_file is not None:
-
         with open(probe_config.canary_file, "r", encoding="utf-8") as f:
             canaries = json.load(f)
         
-        n_steering_goals = delta_goals.shape[1] # to use for sampling later on
-
+        n_steering_goals = delta_goals.shape[1] # currently unused, to use for sampling later on
         canary_deltas = []
         for col in delta_goals.columns:
             row_positive = {c: np.nan for c in delta_goals.columns}
@@ -164,6 +162,10 @@ def prepare_steerability_probe(
             canary_data.append(base_dict)
         canary_df = pd.DataFrame(canary_data)
         eval_probe = pd.concat([eval_probe, canary_df], axis=0, ignore_index=True)
+
+    train_path = os.path.join(training_probe_dir, run_name + "_train.csv")
+    final_probe.to_csv(train_path)
+
     save_path = os.path.join(training_probe_dir, run_name + "_eval.csv")
     eval_probe.to_csv(save_path)
 

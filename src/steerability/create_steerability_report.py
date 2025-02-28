@@ -70,6 +70,8 @@ if __name__ == '__main__':
 
     print("Writing prompts...")
     prompts = llm.write_prompts(delta_goals, target_corrected_goals, **cfg.get("inst_addons", {})) # currently, none of the implemented prompting strategies use "target_goals" but maybe just generate this w/o the weird pd.where in future probes
+    print("EXAMPLE PROMPT:")
+    print("---", prompts[0], "---", "\n", sep="\n")
 
     print("Evaluating steerability...")
     print("Pinging endpoint:", llm.url_endpoint)

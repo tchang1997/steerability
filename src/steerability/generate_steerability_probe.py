@@ -12,6 +12,7 @@
 """
 from argparse import ArgumentParser
 import hashlib
+import os
 
 from beartype import beartype
 import numpy as np
@@ -178,13 +179,14 @@ if __name__ == '__main__':
     # cache = None
     # if args.cache_name is not None:
     #     cache = GoalspaceCache(args.cache_name)
+    need_concat = False
     goalspace_cols = goalspace.get_goal_names(snake_case=True)
     normalized_cols = ["source_" + c for c in goalspace_cols]
-
     if set(goalspace_cols).issubset(set(dataset.columns)):
         print("Goal-space mappings detected; skipping recalculation.")
         goalspace_df = dataset
     else:
+        need_concat = True
         goalspace_df = goalspace(dataset[args.text_col].tolist())
 
     if set(normalized_cols).issubset(set(dataset.columns)):
@@ -192,18 +194,22 @@ if __name__ == '__main__':
     else:
         goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
     
+    allowed_columns = ["text", "source"] + goalspace_cols + normalized_cols
+    goalspace_df = goalspace_df[allowed_columns]
+
     if args.weighting_goals is None:
         weighting_goals = Goalspace(DEFAULT_GOALS)
     else:
         weighting_goals = Goalspace([GoalFactory.get_default(g) for g in args.weighting_goals])
 
-    if "sampling_weights" not in dataset.columns:
-        goalspace_df["sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals)
-    else:
-        print("Sampling weights found; skipping weight calculation.")
+    #if "sampling_weights" not in dataset.columns:
+    goalspace_df.loc[:, "sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals) # for weights that sum to 1
+    goalspace_df.loc[:, "sampling_weights_mean"] = goalspace_df["sampling_weights"] * len(goalspace_df) # for sample weight where 1 = vanilla 
+    #else:
+    #    print("Sampling weights found; skipping weight calculation.")
 
     # only concat if we needed to recompute goal-space mappings and sampling weights
-    if len(goalspace_df.columns) != len(dataset.columns): # kinda hacky, yes
+    if need_concat: # kinda hacky, yes
         goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
     steerability_probe = create_final_probe(
         goalspace_df,
@@ -215,7 +221,7 @@ if __name__ == '__main__':
         delta_max=probe_settings["delta_max"],
         deadzone=probe_settings["deadzone"],
     )
-    steerability_probe.to_csv(cfg["name"] + ".csv")
+    steerability_probe.to_csv(os.path.join("data", cfg["name"] + ".csv"))
     print("Saved steerability probe to", cfg["name"] + ".csv")
 
     if args.weighting_goals is None:

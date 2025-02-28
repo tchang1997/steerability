@@ -1,0 +1,11 @@
+probe: "data/steerbench_converted.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "o1-mini-2024-09-12"
+    chat_type: "openai"
+    cache_file: "o1_mini_oai.tsv"
+    other_kwargs:
+      text_gen_kwargs:
+        randomness: 1. # required by o1
+experiment_name: "o1_mini_direct"
+seed: 42

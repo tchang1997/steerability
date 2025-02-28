@@ -25,6 +25,7 @@ if __name__ == '__main__':
     goal_names = [c.replace("source_", "") for c in raw_probe.columns if c.startswith("source_")]
     source_goals = raw_probe[["source_" + g for g in goal_names]].values
 
+    print("Generating new deltas...")
     deltas = generate_deltas(
         source_goals,
         max_active_goals=probe_settings["max_active_goals"],
@@ -39,5 +40,6 @@ if __name__ == '__main__':
     raw_probe[delta_cols] = deltas
     raw_probe[target_cols] = deltas + source_goals
     name = cfg["name"]
+    print(f"Saving new probe ({name})...")
     raw_probe.to_csv(f"./data/{name}.csv")
 
