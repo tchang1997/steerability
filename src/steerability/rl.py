@@ -81,7 +81,7 @@ def get_reward_funcs(
 
 @beartype
 def prepare_steerability_probe(
-        probe_config: SteerabilityProbeConfig, # TODO: generate a new sadness-surprise probe
+        probe_config: SteerabilityProbeConfig, 
         model_name: str,
         run_name: str,
         training_probe_dir: Optional[str] = "./training_probes/",
@@ -89,8 +89,14 @@ def prepare_steerability_probe(
     probe = pd.read_csv(probe_config.steerability_probe, index_col=0) # currently, we're using a static, pre-generated probe -- probably good to save goalspace mapping time
     source_text_idx = probe[probe_config.source_text_id_col] \
         .drop_duplicates() \
-        .sample(n=probe_config.n_source_texts, random_state=probe_config.probe_sampling_seed, replace=False) # sampling w/o replacement may induce some bias as well
-    print("Texts selected:", source_text_idx.tolist())
+        .sample(
+            n=probe_config.n_source_texts + probe_config.num_test_prompts_for_eval // probe_config.instructions_per_text,
+            random_state=probe_config.probe_sampling_seed,
+            replace=False
+        ).tolist() # sampling w/o replacement may induce some bias as well
+    
+    print("Texts selected:", source_text_idx[:probe_config.n_source_texts])
+    print("Testing texts:", source_text_idx[probe_config.n_source_texts:])
     probe_subset = probe[probe[probe_config.source_text_id_col].isin(source_text_idx)]
 
     final_probe = probe_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
@@ -123,11 +129,56 @@ def prepare_steerability_probe(
     print("Final probe length:", len(final_probe))
     print("Columns:", final_probe.columns)
     min_wt, max_wt = final_probe["sampling_weights_mean"].min(), final_probe["sampling_weights_mean"].max()
+    final_probe["sampling_weights_mean"] = final_probe["sampling_weights_mean"].clip(probe_config.clip_min, probe_config.clip_max)
     print(f"Sampling weights range from ({min_wt}, {max_wt})")
 
+    train_probe = final_probe.iloc[:-probe_config.num_test_prompts_for_eval]
+
+    # create tracking "cross-probes"
+    train_eval_subset = final_probe.iloc[:probe_config.num_train_prompts_for_eval]
+    test_eval_subset = final_probe.iloc[-probe_config.num_test_prompts_for_eval:] 
+
+    cross_probe_size = min(len(train_eval_subset), len(test_eval_subset))
+
+    # cross probe 1: instructions from test set (\Delta z), source texts from train set (z_0)
+    train_source_test_inst = train_eval_subset.copy().iloc[:cross_probe_size]
+    train_source_test_inst[delta_goals.columns] = test_eval_subset[delta_goals.columns].iloc[:cross_probe_size].values # copy deltas from test set over 
+    train_source_test_inst[target_goals.columns] = (
+        train_source_test_inst[source_goals.columns].values[:cross_probe_size]
+        + train_source_test_inst[delta_goals.columns].values[:cross_probe_size] 
+    ) # recompute z*
+    for target_col in target_goals.columns:
+        source_col = target_col.replace("target_", "source_")
+        train_source_test_inst[target_col] = train_source_test_inst[target_col].fillna(train_source_test_inst[source_col])
+        train_source_test_inst[target_col] = train_source_test_inst[target_col].clip(0, 1) # patch the probe and ensure feasibility 
+    # deltas are kept as-is for record-keeping (i.e., they may ``overflow''); but only z* is used for reward eval
+
+    # cross probe 2: instructions from train set (\Delta z), source texts from test set (z_0)
+    test_source_train_inst = test_eval_subset.copy().iloc[:cross_probe_size]
+    test_source_train_inst[delta_goals.columns] = train_eval_subset[delta_goals.columns].iloc[:cross_probe_size].values # copy deltas from test set over
+    test_source_train_inst[target_goals.columns] = (
+        test_source_train_inst[source_goals.columns].values[:cross_probe_size]
+        + test_source_train_inst[delta_goals.columns].values[:cross_probe_size] 
+    ) # recompute z*
+    for target_col in target_goals.columns:
+        source_col = target_col.replace("target_", "source_")
+        test_source_train_inst[target_col] = test_source_train_inst[target_col].fillna(test_source_train_inst[source_col])
+        test_source_train_inst[target_col] = test_source_train_inst[target_col].clip(0, 1) # patch the probe and ensure feasibility 
+
     # create eval dataset
-    eval_probe = final_probe.iloc[:probe_config.num_prompts_for_eval] # non-random currently
-    if probe_config.canary_file is not None:
+    eval_probe = pd.concat(
+        [
+            train_eval_subset,
+            train_source_test_inst,
+            test_source_train_inst, 
+            test_eval_subset,
+        ],
+        keys=["train", "train_source_test_inst", "test_source_train_inst", "test"],
+        names=["split"],
+        axis=0,
+    ) # non-random currently
+    
+    if probe_config.canary_file is not None: # pseudo-synthetic texts for eval...unused for now
         with open(probe_config.canary_file, "r", encoding="utf-8") as f:
             canaries = json.load(f)
         
@@ -164,12 +215,12 @@ def prepare_steerability_probe(
         eval_probe = pd.concat([eval_probe, canary_df], axis=0, ignore_index=True)
 
     train_path = os.path.join(training_probe_dir, run_name + "_train.csv")
-    final_probe.to_csv(train_path)
+    train_probe.to_csv(train_path)
 
     save_path = os.path.join(training_probe_dir, run_name + "_eval.csv")
     eval_probe.to_csv(save_path)
 
-    dataset = Dataset.from_pandas(final_probe)
+    dataset = Dataset.from_pandas(train_probe)
     eval_dataset = Dataset.from_pandas(eval_probe)
     return dataset, eval_dataset
 

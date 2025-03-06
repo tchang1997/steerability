@@ -11,6 +11,9 @@ if __name__ == '__main__':
     psr.add_argument("--api-key", type=str, default="token-abc123")
     psr.add_argument("--model-tag", type=str, default="meta-llama/Meta-Llama-3-8B-Instruct")
     psr.add_argument("--message", type=str, default="Describe your capabilities.")
+    psr.add_argument("--temperature", type=float, default=0.)
+    psr.add_argument("--top-p", type=float, default=0.9)
+    psr.add_argument("--max-tokens", type=int, default=512)
     args = psr.parse_args()
 
     base_url = f"http://localhost:{args.port}/v1"
@@ -30,7 +33,9 @@ if __name__ == '__main__':
                         "content": args.message,
                     }
                 ],
-                temperature=0, # enforce determinism (ish)? for testing
+                temperature=args.temperature, 
+                top_p=args.top_p,
+                max_completion_tokens=args.max_tokens,
             )
         elapsed = time.time() - start
     except openai.APIConnectionError:

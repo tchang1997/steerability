@@ -1,0 +1,16 @@
+# This stores indices manually marked as an ungrounded rewrite for each result file. 
+"steerbench_v3_gpt4_n50_g40_grd.csv": []
+"steerbench_v3_gpt35_n50_g40_grd.csv":
+  - 1174
+"deepseek_distill_8b_local_grd.csv":
+  - 1852
+  - 600
+  - 1742
+  - 68
+  - 1700
+  - 962
+  - 1915
+  - 1301
+  - 1294 
+  - 126 
+  - 1299

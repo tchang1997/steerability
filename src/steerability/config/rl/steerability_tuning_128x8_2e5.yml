@@ -1,0 +1,100 @@
+# ==============================
+# GRPOConfig/TrainingArguments arguments
+# See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
+# ==============================
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v0_4d_128x8_2e5/"
+run_name: "steerability_4d_128x8_2e5"
+remove_unused_columns: False
+# ==============================
+# Default generation args
+# ==============================
+max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
+max_completion_length: 2048 # [MAXED] to give room for <think>ing
+num_generations: 16 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
+temperature: 0.6 
+# ==============================
+# Model/training args
+# ==============================
+attn_implementation: "flash_attention_2"
+learning_rate: 2.0e-5 # seems standard to increase
+optim: "adamw_torch"
+lr_scheduler_type: "cosine"
+adam_beta1: 0.9
+adam_beta2: 0.99
+weight_decay: 0.1
+warmup_ratio: 0.1
+logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
+per_device_train_batch_size: 16 # num_generations * old batch size
+per_device_eval_batch_size: 1
+gradient_accumulation_steps: 8
+num_train_epochs: 1
+beta: 0.04 # anneal?
+model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
+use_cut_cross_entropy: True # -- it wasn't really faster
+# dtyping
+bf16: True
+bf16_full_eval: True # for deepspeed compat
+# LoRA
+use_peft: True
+lora_r: 16
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules: 
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+logit_computation_mini_batch_size: 4
+use_sample_weights: True
+# checkpointing, saving, and logging
+# ==============================
+# Gradient Checkpointing
+# ==============================
+gradient_checkpointing: True # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
+gradient_checkpointing_kwargs:
+    use_reentrant: False # [DO NOT CHANGE] I don't know how to explain this one. Just don't touch it.
+# ==============================
+# Saving and logging
+#
+# Note that we omit eval in lieu of using a callback to generate responses -- the eye-test is the best catch for reward-hacking ;)
+# ==============================
+save_only_model: True # the optimizer states are like, 100G and cause the server to freak out
+report_to: "wandb"
+log_completions: True
+# ==============================
+# vLLM arguments 
+# ==============================
+use_vllm: True
+vllm_device: "auto"
+vllm_gpu_memory_utilization: 0.5
+vllm_max_model_len: 4096
+# ==============================
+# Extra args
+# ==============================
+steerability_probe: "./data/steer_4d_train_1d.csv"
+n_source_texts: 128
+instructions_per_text: 8
+apply_conversational_format: True
+num_prompts_for_eval: 32
+# ==============================
+# Goals to optimize
+# ==============================
+steering_goals: # extra reward kwargs will be passed to the reward funcs
+    - "reading_difficulty"
+    - "text_length"
+    - "joy"
+    - "surprise"
+rewards:
+    - "steerability_error"
+eval_rewards:
+    - "miscalibration" # weight zero
+    - "orthogonality"
+    - "rd_error"
+    - "tl_error"
+    - "j_error"
+    - "su_error"
+normalize_ortho: True
+normalize_miscal: True

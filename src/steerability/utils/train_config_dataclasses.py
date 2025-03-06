@@ -43,9 +43,13 @@ class SteerabilityProbeConfig:
         default="direct",
         metadata={"help": "Prompt strategy (see `instruction_generatory.py`) for generating instructions from goalspace vectors."}
     )
-    num_prompts_for_eval: int = field(
+    num_train_prompts_for_eval: int = field(
         default=6,
-        metadata={"help": "Number of training instructions used for evaluation between epochs."}
+        metadata={"help": "Number of training instructions used for evaluation between epochs. Drawn from training probe."}
+    )
+    num_test_prompts_for_eval: int = field(
+        default=0,
+        metadata={"help": "Number of new instructions used for evaluation between epochs. Drawn from seed set but never seen by model."}
     )
     canary_file: str = field(
         default=None,
@@ -54,6 +58,14 @@ class SteerabilityProbeConfig:
     canary_goal_magnitude: float = field(
         default=0.3,
         metadata={"help": "Magnitude of dummy goals given for manipulating canary texts."}
+    )
+    clip_min: float = field(
+        default=0.0,
+        metadata={"help": "Minimum sample weight for clipping."}
+    )
+    clip_max: float = field(
+        default=float('inf'),
+        metadata={"help": "Maximum sample weight for clipping."}
     )
 
 @dataclass
@@ -106,4 +118,12 @@ class RewardConfig:
     normalize_miscal: bool = field(
         default=False,
         metadata={"help": "Whether to normalize the miscalibration penalty by the length of requested movement in goal-space."}
+    )
+    rescale_norm: bool = field(
+        default=False,
+        metadata={"help": "Whether to rescale the L2 norm metric to be in [0, 1]. By default, the range is [-sqrt(d), 0] or [-d, 0] depending on whether `squared=True`."}
+    )
+    square_rewards: bool = field(
+        default=False,
+        metadata={"help": "Whether to optimize squared L2 in goalspace as a reward (instead of non-squared L2)."}
     )

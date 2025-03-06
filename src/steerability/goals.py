@@ -96,6 +96,8 @@ class Goalspace(object):
         for source_text in tqdm(x, disable=not show_progress):
             key = self.encode_key(source_text)
             try:
+                if key == "": 
+                    import pdb; pdb.set_trace()
                 raw_mapping = self.cache[key]
                 mapping = np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
             except KeyError:
@@ -104,8 +106,13 @@ class Goalspace(object):
                     try:
                         goal_val = goal_fn(source_text)
                     except RuntimeError as e: # mapper functions failed
-                        print(f"MAPPING FAILED DURING GOAL - {goal_fn.__class__.__name__}")
+                        problem_goal = goal_fn.__class__.__name__
+                        print(f"MAPPING FAILED DURING GOAL - {problem_goal}")
                         print("Failed to map source text:", source_text)
+                        problem_file = f".problem_text_for_{problem_goal}"
+                        with open(problem_file, "w") as f:
+                            f.write(source_text)
+                        print("Saved problem text to:", problem_file)
                         raise e
                     mapping.append(goal_val)
                 mapping = np.array(mapping) # in theory, there should be a more efficient way to parallelize + cache
@@ -190,26 +197,34 @@ class Model(ABC):
         pass
 
     @beartype
-    def _rechunk(self, sent: str, max_len: int):
+    def _rechunk(self, sent: str):
         token_counts = []
         words = sent.split()
         for word in words:
             if word in self.tokenizer_cache:
                 input_ids = self.tokenizer_cache[word]
             else:
-                input_ids = self.model.tokenizer(word)["input_ids"] # this word-level tokenize is fast, but will always overestimate (which is ok) -- many-to-one token mappings get missed
+                input_ids = self.model.tokenizer(word)["input_ids"]
                 self.tokenizer_cache[word] = input_ids
-            n_tokens = len(input_ids) # let's play it safe here and not worry about correcting for extra BOS/EOS -- worst-case, the sentences are slightly too short, which is not...bad?
-            token_counts.append(n_tokens)
+            token_counts.append(len(input_ids))
+        
         cumulative_token_counts = np.cumsum(token_counts)
-        limits = list(range(0, np.sum(token_counts), max_len))
+        limits = list(range(self.max_len, np.sum(token_counts) + self.max_len, self.max_len))
+
         start_idx = 0
         chunks = []
+        
         for limit in limits:
-            idx = bisect.bisect_left(cumulative_token_counts, limit)
+            idx = bisect.bisect_right(cumulative_token_counts, limit)  # No need for `-1`
+            if idx <= start_idx:  # Ensure at least one word is included
+                idx = min(start_idx + 1, len(words))
             chunk = " ".join(words[start_idx:idx])
             chunks.append(chunk)
-            start_idx = idx
+            start_idx = idx  # Move start index forward
+
+            if start_idx >= len(words):  # Stop if all words are covered
+                break
+
         return chunks
 
 
@@ -227,6 +242,7 @@ class SentimentClassifier(Model):
             model_pipeline = pipeline("text-classification", model=model, tokenizer=self.tokenizer, device=self.device) # this'll spit out some warning, which we can ignore :D
             #model_pipeline = pipeline("text-classification", model=model_tag, return_all_scores=True, device=self.device)
             self.model = model_pipeline
+            self.max_len = self.model.tokenizer.model_max_length - self.model.tokenizer.num_special_tokens_to_add()
             print("Loading completed!")
         self.tokenizer_cache = {} # for rechunking only
         return self.model
@@ -246,16 +262,15 @@ class SentimentClassifier(Model):
         for sent in sentences: # TODO: pre-process sentences via length-check, then batch inference?
             sent = sent.strip()
 
-            est_sentence_length = len(self.tokenizer(sent)["input_ids"]) - 2 # BOS, EOS
-            max_len = self.model.tokenizer.model_max_length
-            if est_sentence_length > max_len: # ran into this issue for Llama3.3 only
-                print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
+            est_sentence_length = len(self.model.tokenizer(sent)["input_ids"]) # BOS, EOS
+            if est_sentence_length > self.max_len: 
+                print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {self.max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
                 
-                chunks = self._rechunk(sent, max_len)
+                chunks = self._rechunk(sent)
                 for chunk in chunks:
-                    n_tokens = len(self.model.tokenizer(chunk)["input_ids"]) - 2
-                    if n_tokens > max_len:
-                        raise RuntimeError(f"Chunk still exceeds maximum length. Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
+                    n_tokens = len(self.model.tokenizer(chunk)["input_ids"])
+                    if n_tokens > self.max_len:
+                        raise RuntimeError(f"Chunk still exceeds maximum length ({len(n_tokens)} > {self.max_len}). Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
                     with torch.no_grad():
                         print("Tokens in chunk:", n_tokens)
                         chunk_results = self.model(chunk, top_k=None)
@@ -294,7 +309,7 @@ class DetoxifyModel(Model):
                 print(f"Extra-long sentence detected (len: {input_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
                     
 
-                chunks = self._rechunk(sent, max_len)
+                chunks = self._rechunk(sent)
                 for chunk in chunks:
                     toxicity = self.model.predict(chunk)
                     toxicity_by_sent.append(toxicity)

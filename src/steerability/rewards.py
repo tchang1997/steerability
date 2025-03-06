@@ -91,7 +91,16 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
                 continue
         sq_goal_err = np.square(np.array(kwargs[f"target_{goal}"]) - np.array(values))
         macro_negreward += sq_goal_err # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
-    rewards = (-np.sqrt(macro_negreward / len(mappings)) + 1) # normalize to [0, 1]; macro_negreward is in range [-sqrt(len(mappings), 0]
+    if kwargs.get("rescale_norm", False):
+        if kwargs.get("square_rewards", False):
+            rewards =  1 - macro_negreward / len(mappings) # normalize to [0, 1]; macro_negreward is in range [len(mappings), 0]
+        else:
+            rewards = 1 - np.sqrt(macro_negreward / len(mappings))
+    else:
+        if kwargs.get("square_rewards", False):
+            rewards = -macro_negreward # raw squared error
+        else:
+            rewards = -np.sqrt(macro_negreward) 
     return rewards
 
 def orthogonality_wrapper(completions, **kwargs):

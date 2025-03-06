@@ -28,6 +28,9 @@ def renormalize_goalspace(
     normalized = []
     for goal in goal_names:
         source_norm = f"source_{goal}"
+        if f"output_raw_{goal}" not in raw_out.columns:
+            continue
+
         filtered = probe[(probe[source_norm] > 0) & (probe[source_norm] < 1)]
         min_pair = filtered.loc[filtered[source_norm].idxmin()]
         max_pair = filtered.loc[filtered[source_norm].idxmax()]
