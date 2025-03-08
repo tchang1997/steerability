@@ -12,6 +12,8 @@ wandb/
 *.csv
 *.pt
 artifacts/
+grpo_outputs/
+.problem_text_for*
 
 # no figures for now
 *.pdf

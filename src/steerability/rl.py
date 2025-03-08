@@ -86,6 +86,9 @@ def prepare_steerability_probe(
         run_name: str,
         training_probe_dir: Optional[str] = "./training_probes/",
     ) -> Tuple[Dataset, Dataset]: # TODO: make configurable
+    assert probe_config.num_train_prompts_for_eval % probe_config.instructions_per_text == 0
+    assert probe_config.num_test_prompts_for_eval % probe_config.instructions_per_text == 0
+ 
     probe = pd.read_csv(probe_config.steerability_probe, index_col=0) # currently, we're using a static, pre-generated probe -- probably good to save goalspace mapping time
     source_text_idx = probe[probe_config.source_text_id_col] \
         .drop_duplicates() \
@@ -135,8 +138,21 @@ def prepare_steerability_probe(
     train_probe = final_probe.iloc[:-probe_config.num_test_prompts_for_eval]
 
     # create tracking "cross-probes"
-    train_eval_subset = final_probe.iloc[:probe_config.num_train_prompts_for_eval]
-    test_eval_subset = final_probe.iloc[-probe_config.num_test_prompts_for_eval:] 
+    if probe_config.insts_per_probe_source_text is None:
+        train_eval_subset = final_probe.iloc[:probe_config.num_train_prompts_for_eval]
+        test_eval_subset = final_probe.iloc[-probe_config.num_test_prompts_for_eval:] 
+    else:
+        assert probe_config.num_train_prompts_for_eval % probe_config.insts_per_probe_source_text == 0 
+        assert probe_config.num_test_prompts_for_eval % probe_config.insts_per_probe_source_text == 0 
+        train_groups_needed = probe_config.num_train_prompts_for_eval // probe_config.instructions_per_text
+        first_train_groups = final_probe[probe_config.source_text_id_col].unique()[:train_groups_needed]
+        train_eval_superset = final_probe[final_probe[probe_config.source_text_id_col].isin(first_train_groups)]
+        train_eval_subset = train_eval_superset.groupby(probe_config.source_text_id_col).head(probe_config.insts_per_probe_source_text)
+
+        test_groups_needed = probe_config.num_train_prompts_for_eval // probe_config.instructions_per_text
+        first_test_groups = final_probe[probe_config.source_text_id_col].unique()[:test_groups_needed]
+        test_eval_superset = final_probe[final_probe[probe_config.source_text_id_col].isin(first_test_groups)]
+        test_eval_subset = test_eval_superset.groupby(probe_config.source_text_id_col).head(probe_config.insts_per_probe_source_text)
 
     cross_probe_size = min(len(train_eval_subset), len(test_eval_subset))
 

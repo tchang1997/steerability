@@ -1,0 +1,14 @@
+probe: "./training_probes/steerability_3d_in_3d_64x16_5e-6_train.csv" # yes, probe is incorrectly named
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    chat_type: "vllm"
+    cache_file: "vllm-meta-llama3-8b.tsv"
+    other_kwargs:
+        port: 6000
+        max_simul_calls: 32
+        timeout: 6000 # WHAT THE
+inst_addons:
+    disambig: True
+experiment_name: "llama3.1_8b_2d_in_3d_train_baseline"
+seed: 42

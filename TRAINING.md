@@ -9,7 +9,11 @@ Install `vllm` with `uv` following the vLLM documentation. Then:
 pip install deepspeed accelerate 
 ```
 
-And....TODO
+Make sure you run `accelerate config` **on reboot**.
+
+**Other gotchas:**
+* Gradient checkpointing must be on with `reentrant: False`.
+* You can get away with not offloading the optimizer to CPU; this is extremely risky though and might OOM deep into a run.
 
 ## Running
 

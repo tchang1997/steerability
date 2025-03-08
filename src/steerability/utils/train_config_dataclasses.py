@@ -51,6 +51,10 @@ class SteerabilityProbeConfig:
         default=0,
         metadata={"help": "Number of new instructions used for evaluation between epochs. Drawn from seed set but never seen by model."}
     )
+    insts_per_probe_source_text: Optional[int] = field(
+        default=None,
+        metadata={"help": "Number of instructions per probe to sample."}
+    )
     canary_file: str = field(
         default=None,
         metadata={"help": "File containing lists of strings for evaluating completions only."}
