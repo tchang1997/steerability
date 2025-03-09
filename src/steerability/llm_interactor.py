@@ -68,6 +68,7 @@ class LLMInteractor(object):
         self.cache_file = cache_file
         self.instruction_generator = instruction_generator
         self.inst_context_delimiter = inst_context_delimiter
+        self.num_generations = text_gen_kwargs.get("num_generations", 1)
         self.text_gen_kwargs = text_gen_kwargs
 
         if os.path.isfile(api_config):
@@ -144,10 +145,11 @@ class LLMInteractor(object):
 
         for raw_resp in outputs.outputs.llm_responses: 
             try:
-                clean_resp = clean_model_output(self.llm_name, raw_resp[0]) # by default, only return one response
-                clean_resp = self.instruction_generator.clean_response(clean_resp) 
-                raw_output.append(raw_resp[0])
-                final_output.append(clean_resp)
+                for resp in raw_resp[0]:
+                    clean_resp = clean_model_output(self.llm_name, resp) # by default, only return one response
+                    clean_resp = self.instruction_generator.clean_response(clean_resp) 
+                    raw_output.append(resp)
+                    final_output.append(clean_resp)
             except Exception as e:
                 import traceback
                 print("Exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
@@ -179,14 +181,24 @@ class LLMInteractor(object):
         goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
         out_normed = renormalize_goalspace(seed_data, goalspace_out)
 
-        steerability_data = pd.concat([
-            probe,
-            prompts,
-            raw_inputs,
-            llm_outputs,
-            goalspace_out,
-            out_normed,
-        ], axis=1)
+        if self.num_generations == 1:
+            steerability_data = pd.concat([
+                probe,
+                prompts,
+                raw_inputs,
+                llm_outputs,
+                goalspace_out,
+                out_normed,
+            ], axis=1)
+        else:
+            steerability_data = pd.concat([
+                probe.loc[np.tile(probe.index, self.num_generations)].reset_index(drop=True),
+                prompts.loc[np.tile(prompts.index, self.num_generations)].reset_index(drop=True),
+                raw_inputs,
+                llm_outputs,
+                goalspace_out,
+                out_normed,
+            ], axis=1)
 
         # this creates a "signature" that helps disambiguate experiments
         steerability_data["instruction_generator"] = self.instruction_generator.__class__.__name__

@@ -14,6 +14,9 @@ if __name__ == '__main__':
     psr.add_argument("--temperature", type=float, default=0.)
     psr.add_argument("--top-p", type=float, default=0.9)
     psr.add_argument("--max-tokens", type=int, default=512)
+    psr.add_argument("-n", type=int, default=1)
+    psr.add_argument("--min-p", type=float, default=0)
+    psr.add_argument("--frequency-penalty", type=float, default=0.)
     args = psr.parse_args()
 
     base_url = f"http://localhost:{args.port}/v1"
@@ -36,15 +39,27 @@ if __name__ == '__main__':
                 temperature=args.temperature, 
                 top_p=args.top_p,
                 max_completion_tokens=args.max_tokens,
+                n=args.n,
+                frequency_penalty=args.frequency_penalty,
+                extra_body={"min_p": args.min_p},
             )
         elapsed = time.time() - start
     except openai.APIConnectionError:
         print("Raised a connection error -- check the endpoint.")
         sys.exit(1)
 
-    print("--- RESPONSE ---")
-    raw_response = completion.choices[0].message.content
-    print(raw_response)
+    choices = completion.choices
+    if len(choices) == 1:
+        raw_response = choices[0].message.content
+        print("--- RESPONSE ---")
+        print(raw_response)
+    else:
+        for i, choice in enumerate(choices):
+            raw_response = choice.message.content
+            print(f"--- RESPONSE #{i+1} ---")
+            print(raw_response)
+            print()
+
 
     output_toks = len(raw_response.split())
     print("--- STATS --- ")
