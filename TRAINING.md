@@ -9,7 +9,12 @@ Install `vllm` with `uv` following the vLLM documentation. Then:
 pip install deepspeed accelerate 
 ```
 
-Make sure you run `accelerate config` **on reboot**.
+Make sure you run `accelerate config` **on reboot**. You may also need to reset some paths:
+```
+export CUDA_HOME=/usr/local/cuda-12.4
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+```
 
 **Other gotchas:**
 * Gradient checkpointing must be on with `reentrant: False`.

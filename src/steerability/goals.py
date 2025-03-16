@@ -95,9 +95,7 @@ class Goalspace(object):
         goalspace_mappings = []
         for source_text in tqdm(x, disable=not show_progress):
             key = self.encode_key(source_text)
-            try:
-                if key == "": 
-                    import pdb; pdb.set_trace()
+            try: 
                 raw_mapping = self.cache[key]
                 mapping = np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
             except KeyError:
@@ -270,10 +268,22 @@ class SentimentClassifier(Model):
                 for chunk in chunks:
                     n_tokens = len(self.model.tokenizer(chunk)["input_ids"])
                     if n_tokens > self.max_len:
-                        raise RuntimeError(f"Chunk still exceeds maximum length ({len(n_tokens)} > {self.max_len}). Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
+                        warnings.warn(f"Chunk still exceeds maximum length ({n_tokens} > {self.max_len}). Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
+                        chunk_results = [
+                            {'label': 'surprise', 'score': -1.}, 
+                            {'label': 'anger', 'score': -1.}, 
+                            {'label': 'neutral', 'score': -1.}, 
+                            {'label': 'disgust', 'score': -1.}, 
+                            {'label': 'sadness', 'score': -1.}, 
+                            {'label': 'fear', 'score': -1.}, 
+                            {'label': 'joy', 'score': -1.}
+                        ]
+                        sentiment_by_sentences.append(pd.DataFrame(chunk_results))
+                        continue
                     with torch.no_grad():
                         print("Tokens in chunk:", n_tokens)
                         chunk_results = self.model(chunk, top_k=None)
+                    print(chunk_results)
                     sentiment_by_sentences.append(pd.DataFrame(chunk_results))
             else: # proceed normally
                 with torch.no_grad():

@@ -2,14 +2,14 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_64x16_baseline/"
-run_name: "steerability_2d_in_3d_64x16_5e-6"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_64x16_baseline_no_prefix_caching/"
+run_name: "steerability_2d_in_3d_64x16_1e-6_nopc"
 remove_unused_columns: False
 # ==============================
 # Default generation args
 # ==============================
-max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
-max_completion_length: 2048 # [MAXED] to give room for <think>ing
+max_prompt_length: 1536 # [MAXED] more than enough -- longest text in probe is ~1200 words, + system prompt and instruction adds <100
+max_completion_length: 1024 # [MAXED] 
 num_generations: 16 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
 temperature: 1.0
 min_p: 0.2
@@ -33,7 +33,6 @@ max_grad_norm: 0.2
 num_train_epochs: 1
 beta: 0.04 # anneal?
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
-use_cut_cross_entropy: True # -- it wasn't really faster
 # dtyping
 bf16: True
 bf16_full_eval: True # for deepspeed compat
@@ -52,7 +51,9 @@ lora_target_modules:
     - "up_proj"
     - "down_proj"
 logit_computation_mini_batch_size: 4
+torch_empty_cache_steps: 1
 use_sample_weights: True
+use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
@@ -76,7 +77,7 @@ log_completions: True
 use_vllm: True
 vllm_device: "auto"
 vllm_gpu_memory_utilization: 0.5
-vllm_max_model_len: 4096
+vllm_max_model_len: 2048
 # ==============================
 # Extra args
 # ==============================
@@ -102,5 +103,5 @@ eval_rewards:
     - "rd_error"
     - "j_error"
     - "su_error"
-normalize_ortho: False # show raw norms -- we're not optimizing right now
-normalize_miscal: False  # show raw norms -- we're not optimizing right now
+normalize_ortho: True #
+normalize_miscal: True  # 
