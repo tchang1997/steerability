@@ -131,3 +131,11 @@ class RewardConfig:
         default=False,
         metadata={"help": "Whether to optimize squared L2 in goalspace as a reward (instead of non-squared L2)."}
     )
+    good_enough_threshold: Optional[float] = field(
+        default=None,
+        metadata={"help": "Clips rewards above this threshold, such that `good_enough_threshold` is the max possible reward."}
+    )
+    too_bad_threshold: Optional[float] = field(
+        default=None,
+        metadata={"help": "Clisp rewards below this threshold to this value, such that `too_bad_threshold` is the min. possible reward."}
+    )

@@ -108,7 +108,7 @@ def prepare_steerability_probe(
             random_state=probe_config.probe_sampling_seed,
             replace=False,
         )
-    ).reset_index(drop=True)
+    ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
 
     instruction_generator = get_instruction_generator(probe_config.prompt_strategy)
     delta_goals = final_probe.filter(like='delta_', axis=1) # This is heavily reliant on how the probe is implemented at an earlier stage -- target for further refactor
@@ -383,6 +383,7 @@ if __name__ == '__main__':
             "steering_goals": reward_config.steering_goals,
             "normalize_ortho": reward_config.normalize_ortho,
             "normalize_miscal": reward_config.normalize_miscal,
+            "good_enough_threshold": reward_config.good_enough_threshold,
         },
     )
     callbacks = [
