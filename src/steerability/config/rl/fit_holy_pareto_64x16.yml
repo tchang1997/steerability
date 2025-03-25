@@ -94,9 +94,9 @@ steerability_probe: "./data/steer_2d_in_3d.csv"
 n_source_texts: 64
 instructions_per_text: 16
 apply_conversational_format: True
-num_train_prompts_for_eval: 64 # can we sample 8x8 instead
-num_test_prompts_for_eval: 64
-insts_per_probe_source_text: 8
+num_train_prompts_for_eval: 32 # can we sample 8x8 instead
+num_test_prompts_for_eval: 32
+insts_per_probe_source_text: 4
 probe_sampling_seed: 137
 # ==============================
 # Goals to optimize

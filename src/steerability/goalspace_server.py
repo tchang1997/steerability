@@ -11,7 +11,7 @@ yaml = YAML(typ="safe")
 
 from goals import DEFAULT_GOALS, Goalspace
 
-GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v9.json") 
+GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v11.json") 
 with open("config/seed_data/magic_numbers.yml", "r") as f:
     NORMALIZATION = yaml.load(f)
 

@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_holy_pareto_replication!/"
-run_name: "steerability_2d_in_3d_16x16_holy_pareto_replication!"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_be_there_be_square/"
+run_name: "steerability_2d_in_3d_16x16_be_there_be_square"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -33,11 +33,11 @@ rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
     - 1 
     - 2
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 1
+gradient_accumulation_steps: 2
 max_grad_norm: 1.0
 num_train_epochs: 1
 num_iterations: 3
-beta: 0.01 # anneal?A
+beta: 0.0 # anneal?A
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
 epsilon_lower: 0.2
 epsilon_upper: 0.3
@@ -63,6 +63,8 @@ logit_computation_mini_batch_size: 4
 torch_empty_cache_steps: 1
 use_sample_weights: True
 use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)
+tau: 0.5
+lambda_tau: 0.1
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
@@ -115,3 +117,4 @@ eval_rewards:
     - "su_error"
 normalize_ortho: True #
 normalize_miscal: True  # 
+square_rewards: True

@@ -133,9 +133,9 @@ class RewardConfig:
     )
     good_enough_threshold: Optional[float] = field(
         default=None,
-        metadata={"help": "Clips rewards above this threshold, such that `good_enough_threshold` is the max possible reward."}
+        metadata={"help": "Clip the goal dimension error below this threshold, such that `good_enough_threshold` is the max possible reward/min possible error in a goal dimension."}
     )
     too_bad_threshold: Optional[float] = field(
         default=None,
-        metadata={"help": "Clisp rewards below this threshold to this value, such that `too_bad_threshold` is the min. possible reward."}
+        metadata={"help": "Clip the goal dimension error above this threshold to this value, such that `too_bad_threshold` is the min. possible reward/max. possible error in a goal dimension."}
     )

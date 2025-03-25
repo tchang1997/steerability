@@ -24,7 +24,7 @@ adam_beta1: 0.9
 adam_beta2: 0.99
 weight_decay: 0.1
 warmup_ratio: 0.1
-max_grad_norm: 0.5
+max_grad_norm: 1.0
 logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
 per_device_train_batch_size: 16 # num_generations * old batch size
 rejection_sample_size: 4
@@ -56,6 +56,8 @@ rejection_sample_type: "pareto"
 rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
     - 1 
     - 2
+tau: 0.3
+lambda_tau: 0.1
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing

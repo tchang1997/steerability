@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_holy_pareto_replication!/"
-run_name: "steerability_2d_in_3d_16x16_holy_pareto_replication!"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_32x8_double_trouble_ipo_beta/"
+run_name: "steerability_2d_in_3d_32x8_double_trouble_ipo_beta"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -33,7 +33,7 @@ rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
     - 1 
     - 2
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 1
+gradient_accumulation_steps: 2
 max_grad_norm: 1.0
 num_train_epochs: 1
 num_iterations: 3
@@ -63,6 +63,8 @@ logit_computation_mini_batch_size: 4
 torch_empty_cache_steps: 1
 use_sample_weights: True
 use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)
+tau: 0.5
+lambda_tau: 0.1
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
@@ -91,8 +93,8 @@ vllm_max_model_len: 2048
 # Extra args
 # ==============================
 steerability_probe: "./data/steer_2d_in_3d.csv"
-n_source_texts: 16
-instructions_per_text: 16
+n_source_texts: 32
+instructions_per_text: 8
 apply_conversational_format: True
 num_train_prompts_for_eval: 32 # can we sample 8x8 instead
 num_test_prompts_for_eval: 32

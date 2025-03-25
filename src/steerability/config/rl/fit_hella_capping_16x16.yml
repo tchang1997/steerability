@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_holy_pareto_replication!/"
-run_name: "steerability_2d_in_3d_16x16_holy_pareto_replication!"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_hella_capping/"
+run_name: "steerability_2d_in_3d_16x16_hella_capping"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -34,10 +34,10 @@ rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
     - 2
 per_device_eval_batch_size: 1
 gradient_accumulation_steps: 1
-max_grad_norm: 1.0
+max_grad_norm: 0.5
 num_train_epochs: 1
 num_iterations: 3
-beta: 0.01 # anneal?A
+beta: 0.01 # anneal?
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
 epsilon_lower: 0.2
 epsilon_upper: 0.3
@@ -115,3 +115,4 @@ eval_rewards:
     - "su_error"
 normalize_ortho: True #
 normalize_miscal: True  # 
+good_enough_threshold: 0.1 # capping

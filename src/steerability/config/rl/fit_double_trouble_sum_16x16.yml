@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_holy_pareto_replication!/"
-run_name: "steerability_2d_in_3d_16x16_holy_pareto_replication!"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_16x16_double_trouble_steer_only/"
+run_name: "steerability_2d_in_3d_16x16_double_trouble_steer_only"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -28,16 +28,13 @@ warmup_ratio: 0.2
 logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
 per_device_train_batch_size: 64 # num_generations before rejection sampling * old batch size
 rejection_sample_size: 16
-rejection_sample_type: "pareto"
-rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
-    - 1 
-    - 2
+rejection_sample_type: "sum"
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 1
+gradient_accumulation_steps: 2
 max_grad_norm: 1.0
 num_train_epochs: 1
 num_iterations: 3
-beta: 0.01 # anneal?A
+beta: 0.0 # anneal?A
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
 epsilon_lower: 0.2
 epsilon_upper: 0.3
@@ -59,7 +56,7 @@ lora_target_modules:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-logit_computation_mini_batch_size: 4
+logit_computation_mini_batch_size: 2
 torch_empty_cache_steps: 1
 use_sample_weights: True
 use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)

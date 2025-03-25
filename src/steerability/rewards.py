@@ -45,7 +45,7 @@ async def map_to_goalspace(
         texts: Union[str, List[str]],
         goals: Optional[List[str]] = None,
         port: Optional[int] = 12121,
-        n_workers: Optional[int] = 4
+        n_workers: Optional[int] = 16, # this is more how many chunks you want to split your workload into -- the request will just sit in a queue anyway
     ):
     if isinstance(texts, str):
         texts = [texts]
@@ -89,7 +89,13 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         if isinstance(kwargs["steering_goals"], list):
             if goal not in kwargs["steering_goals"]:
                 continue
-        sq_goal_err = np.square(np.array(kwargs[f"target_{goal}"]) - np.array(values))
+        sq_goal_err = np.square(
+            np.clip(
+                np.abs(np.array(kwargs[f"target_{goal}"]) - np.array(values)), 
+                a_min=kwargs.get("good_enough_threshold", -float('inf')),
+                a_max=kwargs.get("too_bad_threshold", float('inf')),
+            ) # we currently don't use the too_bad threshold
+        )
         macro_negreward += sq_goal_err # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
     if kwargs.get("rescale_norm", False):
         if kwargs.get("square_rewards", False):
