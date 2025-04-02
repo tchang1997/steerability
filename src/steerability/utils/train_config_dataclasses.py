@@ -139,3 +139,7 @@ class RewardConfig:
         default=None,
         metadata={"help": "Clip the goal dimension error above this threshold to this value, such that `too_bad_threshold` is the min. possible reward/max. possible error in a goal dimension."}
     )
+    decile: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to shape rewards by discretization into buckets of size 0.1."}
+    )

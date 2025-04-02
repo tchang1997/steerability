@@ -142,10 +142,10 @@ class LLMInteractor(object):
         outputs = Output(GenerateText(Template("{{input}}"), **self.text_gen_kwargs)).run(self.chat_instance, prompts.tolist())
         final_output = []
         raw_output = []
-
         for raw_resp in outputs.outputs.llm_responses: 
             try:
-                for resp in raw_resp[0]:
+                iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
+                for resp in iter_obj: # do we need [0]?
                     clean_resp = clean_model_output(self.llm_name, resp) # by default, only return one response
                     clean_resp = self.instruction_generator.clean_response(clean_resp) 
                     raw_output.append(resp)

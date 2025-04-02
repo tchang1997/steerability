@@ -2,62 +2,70 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/debugging/"
-run_name: "debug"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v1_2d_in_3d_128x8_double_trouble_ipo_beta_repl/"
+run_name: "steerability_2d_in_3d_128x8_double_trouble_ipo_beta_repl"
 remove_unused_columns: False
 # ==============================
 # Default generation args
 # ==============================
-max_prompt_length: 512 # [MAXED] more than enough -- longest text in probe is ~1450 words. 
-max_completion_length: 512 # [MAXED] to give room for <think>ing
-num_generations: 16 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later...
+max_prompt_length: 2048 # [MAXED] more than enough -- longest text in probe is ~1200 words, + system prompt and instruction adds <100
+max_completion_length: 1024 # [MAXED] 
+num_generations: 64 # [MAXED] as high as possible -- we get within ~10MiB to an OOM; optimize later..
 temperature: 1.0
 min_p: 0.2
+frequency_penalty: 0.1 # a little more heavy handed than I'd like, but perhaps necessary for training
 # ==============================
 # Model/training args
 # ==============================
 attn_implementation: "flash_attention_2"
-learning_rate: 1.0e-4 # seems standard to increase
+learning_rate: 5.0e-7 # seems standard to increase
 optim: "adamw_torch"
-lr_scheduler_type: "cosine"
+lr_scheduler_type: "constant_with_warmup"
 adam_beta1: 0.9
 adam_beta2: 0.99
 weight_decay: 0.1
-warmup_ratio: 0.1
-max_grad_norm: 1.0
+warmup_ratio: 0.2
 logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
-per_device_train_batch_size: 16 # num_generations * old batch size
-rejection_sample_size: 4
+per_device_train_batch_size: 64 # num_generations before rejection sampling * old batch size
+rejection_sample_size: 16
+rejection_sample_type: "pareto"
+rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
+    - 1 
+    - 2
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 1
-num_train_epochs: 2
-beta: 0.04 # anneal?
+gradient_accumulation_steps: 2
+max_grad_norm: 1.0
+num_train_epochs: 1
+num_iterations: 3
+beta: 0.01 # anneal?A
 model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
-use_cut_cross_entropy: True # -- it wasn't really faster
+epsilon_lower: 0.2
+epsilon_upper: 0.3
+normalize_rewards: False
 # dtyping
 bf16: True
 bf16_full_eval: True # for deepspeed compat
 # LoRA
 use_peft: True
 lora_r: 256
-lora_alpha: 512
+lora_alpha: 512 # hparams from sebastian raschka's blog?
 use_rslora: True
-lora_dropout: 0.05
+lora_dropout: 0.0
 lora_target_modules: 
     - "q_proj"
     - "k_proj"
     - "v_proj"
     - "o_proj"
-logit_computation_mini_batch_size: 1
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+logit_computation_mini_batch_size: 4
+torch_empty_cache_steps: 1
 use_sample_weights: True
-sync_ref_model: True 
-ref_model_sync_steps: 1
-rejection_sample_type: "pareto"
-rejection_sample_pareto_dimensions: # indices w.r.t. [reward, eval_rewards]
-    - 1 
-    - 2
-tau: 0.3
+use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)
+tau: 0.5
 lambda_tau: 0.1
+lopo_epsilon: 0.
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
@@ -65,35 +73,38 @@ lambda_tau: 0.1
 gradient_checkpointing: True # [DO NOT CHANGE] req'd otherwise initial forward OOM's. But the PR claims this is a pass-through on prompt caching?
 gradient_checkpointing_kwargs:
     use_reentrant: False # [DO NOT CHANGE] I don't know how to explain this one. Just don't touch it.
-torch_empty_cache_steps: 1
 # ==============================
 # Saving and logging
 #
 # Note that we omit eval in lieu of using a callback to generate responses -- the eye-test is the best catch for reward-hacking ;)
 # ==============================
+save_strategy: "steps"
+save_steps: 0.125
 save_only_model: True # the optimizer states are like, 100G and cause the server to freak out
 report_to: "wandb"
 log_completions: True
+log_after_ppo_only: True
 # ==============================
 # vLLM arguments 
 # ==============================
 use_vllm: True
 vllm_device: "auto"
 vllm_gpu_memory_utilization: 0.5
-vllm_max_model_len: 1024
+vllm_max_model_len: 2048
 vllm_server_host: "localhost"
 vllm_server_port: 9876
-vllm_server_timeout: 30
+vllm_server_timeout: 600
 # ==============================
 # Extra args
 # ==============================
 steerability_probe: "./data/steer_2d_in_3d.csv"
-n_source_texts: 2
-instructions_per_text: 4
+n_source_texts: 128
+instructions_per_text: 8
 apply_conversational_format: True
-num_train_prompts_for_eval: 4 # can we sample 8x8 instead
-num_test_prompts_for_eval: 4
-insts_per_probe_source_text: 2
+num_train_prompts_for_eval: 32 # can we sample 8x8 instead
+num_test_prompts_for_eval: 32
+insts_per_probe_source_text: 4
+probe_sampling_seed: 137
 # ==============================
 # Goals to optimize
 # ==============================
@@ -109,5 +120,5 @@ eval_rewards:
     - "rd_error"
     - "j_error"
     - "su_error"
-normalize_ortho: True
-normalize_miscal: True
+normalize_ortho: True #
+normalize_miscal: True  # 

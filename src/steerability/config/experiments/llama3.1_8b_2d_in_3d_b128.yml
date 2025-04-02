@@ -6,12 +6,14 @@ llm_settings:
     cache_file: "vllm-meta-llama3-8b.tsv"
     other_kwargs:
         port: 16384 
-        max_simul_calls: 128
+        max_simul_calls: 8 # 256 concurrent is the max we seem to be able to handle (max_simul_calls * num_generations)
         timeout: 6000 # WHAT THE
         text_gen_kwargs: # in sammo-language
-            randomness: 0.0
-            num_generations: 1
+            randomness: 1.0
+            num_generations: 128
+            min_p: 0.2
+            frequency_penalty: 0.1
 inst_addons:
     disambig: True
-experiment_name: "llama3.1_8b_2d_in_3d_train_baseline_v2"
+experiment_name: "llama3.1_8b_2d_in_3d_train_best_of_128"
 seed: 42

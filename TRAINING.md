@@ -38,3 +38,10 @@ NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=[at least 3 GPUs] accelerate launch --nu
 By default, we use `deepspeed` to do ZeRO stage 2 (gradients are partitioned, but not model weights), as well as gradient checkpointing. This is sufficient to *barely* not OOM on a 48GB GPU.
 
 This will train on two GPUs, leaving a third for vLLM inference (for generating completions to compute advantages). We use prompt-caching while generating the groups since the gradient doesn't need to propagate back; see [LINK].
+
+## Serving LoRA adapters
+
+We must use `fastsafetensors` to load the weights directly to GPU, otherwise there seems to be some device bug (which can be worked around if you `cp -r` the model weights to home). `VLLM_USE_V1="1"` is essential to make sure some checks for Triton get put on the right device; otherwise you must use GPU 0.
+```
+USE_FASTSAFETENSOR="true" VLLM_USE_V1="1" CUDA_VISIBLE_DEVICES=5 vllm serve meta-llama/Meta-Llama-3.1-8B-Instruct --port 16384 --enable-lora --dtype bfloat16 --max-lora-rank 256 --lora-dtype bfloat16 --max-model-len 1024 --gpu-memory-utilization 0.6 --lora-modules default=/path/to/lora-adapter-dir
+```

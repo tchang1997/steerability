@@ -373,6 +373,7 @@ if __name__ == '__main__':
             "normalize_miscal": reward_config.normalize_miscal,
             "good_enough_threshold": reward_config.good_enough_threshold,
             "square_rewards": reward_config.square_rewards,
+            "decile": reward_config.decile,
         },
     )
     callbacks = [

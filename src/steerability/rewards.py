@@ -89,13 +89,16 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         if isinstance(kwargs["steering_goals"], list):
             if goal not in kwargs["steering_goals"]:
                 continue
-        sq_goal_err = np.square(
-            np.clip(
+
+        raw_clipped_err = np.clip(
                 np.abs(np.array(kwargs[f"target_{goal}"]) - np.array(values)), 
                 a_min=kwargs.get("good_enough_threshold", -float('inf')),
                 a_max=kwargs.get("too_bad_threshold", float('inf')),
             ) # we currently don't use the too_bad threshold
-        )
+        if kwargs.get("decile", False): # since granularity of 0.1 is specific enough to capture all differences
+            raw_clipped_err = np.clip(np.ceil(raw_clipped_err * 10) / 10., 0.0, 1.0)
+        sq_goal_err = np.square(raw_clipped_err)
+
         macro_negreward += sq_goal_err # add (\hat{z}_i - z*_i)^2 -> squared L2. Should throw a shape error if any goals are missing.
     if kwargs.get("rescale_norm", False):
         if kwargs.get("square_rewards", False):
@@ -106,7 +109,7 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
         if kwargs.get("square_rewards", False):
             rewards = -macro_negreward # raw squared error
         else:
-            rewards = -np.sqrt(macro_negreward) 
+            rewards = -np.sqrt(macro_negreward)         
     return rewards
 
 def orthogonality_wrapper(completions, **kwargs):
