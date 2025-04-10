@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import os
 from pathlib import Path
 import random
 
@@ -77,6 +78,9 @@ if __name__ == '__main__':
     print("Pinging endpoint:", llm.url_endpoint)
     outputs = llm.generate_steerability_data(probe, prompts, seed_data) # seed_data for normalization only -- refactor someday?
 
+    result_dir = os.path.dirname(result_path)
+    if not os.path.isdir(result_dir):
+        os.mkdir(result_dir)
     outputs.to_csv(result_path)
     print("Steerability data saved to", result_path)
 

@@ -1,5 +1,6 @@
 import asyncio
 from argparse import ArgumentParser
+import ast
 from datetime import datetime
 from itertools import cycle, product
 import json
@@ -128,43 +129,50 @@ def create_train_val_split(probe: pd.DataFrame, probe_config: SteerabilityProbeC
     train_probe = probe.sample(frac=0.5, random_state=probe_config.probe_sampling_seed)
     test_probe = probe.drop(train_probe.index)
 
-    train_source_texts = train_probe[probe_config.source_text_id_col] \
-        .drop_duplicates() \
-        .sample(
-            n=probe_config.n_source_texts,
-            random_state=probe_config.probe_sampling_seed,
-            replace=False
-        ).tolist() # sampling w/o replacement may induce some bias. No sample-weighting; weights already precalculated.     
-    print("Train texts:", train_source_texts)
+    if probe_config.train_probe_path is not None:
+        train_data = pd.read_csv(probe_config.train_probe_path, index_col=0)
+        train_data["prompt"] = train_data["prompt"].apply(ast.literal_eval)
+    else:
+        train_source_texts = train_probe[probe_config.source_text_id_col] \
+            .drop_duplicates() \
+            .sample(
+                n=probe_config.n_source_texts,
+                random_state=probe_config.probe_sampling_seed,
+                replace=False
+            ).tolist() # sampling w/o replacement may induce some bias. No sample-weighting; weights already precalculated.     
+        print("Train texts:", train_source_texts)
 
-    test_source_texts = test_probe[probe_config.source_text_id_col] \
-        .drop_duplicates() \
-        .sample(
-            n=probe_config.num_test_prompts_for_eval // probe_config.insts_per_probe_source_text, 
-            random_state=probe_config.probe_sampling_seed,
-            replace=False,
-        ).tolist()
-    print("Test texts:", test_source_texts)
+        train_subset = train_probe[train_probe[probe_config.source_text_id_col].isin(train_source_texts)]
+        train_data = train_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
+            lambda x: x.sample(
+                n=min(len(x), probe_config.instructions_per_text),
+                random_state=probe_config.probe_sampling_seed,
+                replace=False,
+            )
+        ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
+        train_data = generate_instruction_columns(train_data, probe_config, model_name)
 
-    train_subset = train_probe[train_probe[probe_config.source_text_id_col].isin(train_source_texts)]
-    train_data = train_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
-        lambda x: x.sample(
-            n=min(len(x), probe_config.instructions_per_text),
-            random_state=probe_config.probe_sampling_seed,
-            replace=False,
-        )
-    ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
-    train_data = generate_instruction_columns(train_data, probe_config, model_name)
-
-    test_subset = test_probe[test_probe[probe_config.source_text_id_col].isin(test_source_texts)]
-    test_data = test_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
-        lambda x: x.sample(
-            n=min(len(x), probe_config.insts_per_probe_source_text),
-            random_state=probe_config.probe_sampling_seed,
-            replace=False,
-        )
-    ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
-    test_data = generate_instruction_columns(test_data, probe_config, model_name)
+    if probe_config.test_probe_path is not None:
+        test_data = pd.read_csv(probe_config.test_probe_path, index_col=0)
+        test_data["prompt"] = test_data["prompt"].apply(ast.literal_eval)
+    else:
+        test_source_texts = test_probe[probe_config.source_text_id_col] \
+            .drop_duplicates() \
+            .sample(
+                n=probe_config.num_test_prompts_for_eval // probe_config.insts_per_probe_source_text, 
+                random_state=probe_config.probe_sampling_seed,
+                replace=False,
+            ).tolist()
+        print("Test texts:", test_source_texts)
+        test_subset = test_probe[test_probe[probe_config.source_text_id_col].isin(test_source_texts)]
+        test_data = test_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
+            lambda x: x.sample(
+                n=min(len(x), probe_config.insts_per_probe_source_text),
+                random_state=probe_config.probe_sampling_seed,
+                replace=False,
+            )
+        ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
+        test_data = generate_instruction_columns(test_data, probe_config, model_name)
     return train_data, test_data
 
 @beartype
@@ -197,30 +205,36 @@ def prepare_steerability_probe(
         first_train_groups = train_data[probe_config.source_text_id_col].unique()[:train_groups_needed]
         train_eval_superset = train_data[train_data[probe_config.source_text_id_col].isin(first_train_groups)]
         train_eval_subset = train_eval_superset.groupby(probe_config.source_text_id_col).head(probe_config.insts_per_probe_source_text)
+    if probe_config.cross_probes:
+        train_source_test_inst = create_cross_probe(train_eval_subset, test_eval_subset)
+        test_source_train_inst = create_cross_probe(test_eval_subset, train_eval_subset)
 
-    train_source_test_inst = create_cross_probe(train_eval_subset, test_eval_subset)
-    test_source_train_inst = create_cross_probe(test_eval_subset, train_eval_subset)
-
-    assert (test_eval_subset.filter(regex="^(original_|text|source*)", axis=1).values == test_source_train_inst.filter(regex="^(original_|text|source*)", axis=1).values).all()
-    assert (train_eval_subset.filter(regex="^(original_|text|source*)", axis=1).values == train_source_test_inst.filter(regex="^(original_|text|source*)", axis=1).values).all()
-    assert (test_eval_subset.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values == train_source_test_inst.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values).all()
-    assert (train_eval_subset.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values == test_source_train_inst.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values).all()
-
-    # create eval dataset
-    eval_probe = pd.concat(
-        [
+        assert (test_eval_subset.filter(regex="^(original_|text|source*)", axis=1).values == test_source_train_inst.filter(regex="^(original_|text|source*)", axis=1).values).all()
+        assert (train_eval_subset.filter(regex="^(original_|text|source*)", axis=1).values == train_source_test_inst.filter(regex="^(original_|text|source*)", axis=1).values).all()
+        assert (test_eval_subset.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values == train_source_test_inst.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values).all()
+        assert (train_eval_subset.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values == test_source_train_inst.filter(regex="^(delta_|prompt|instructions)", axis=1).fillna(-1).values).all()
+        probes_to_combine = [
             train_eval_subset,
             train_source_test_inst,
             test_source_train_inst, 
             test_eval_subset,
-        ],
-        keys=["train", "train_source_test_inst", "test_source_train_inst", "test"],
+        ]
+        split_names = ["train", "train_source_test_inst", "test_source_train_inst", "test"]
+    else:
+        probes_to_combine = [train_eval_subset, test_eval_subset]
+        split_names = ["train", "test"]
+    # create eval dataset
+    eval_probe = pd.concat(
+        probes_to_combine,
+        keys=split_names,
         names=["split"],
         axis=0,
     ) # non-random currently
     
     train_path = os.path.join(training_probe_dir, run_name + "_train.csv")
     train_data.to_csv(train_path)
+    test_path = os.path.join(training_probe_dir, run_name + "_test.csv")
+    test_data.to_csv(test_path)
     save_path = os.path.join(training_probe_dir, run_name + "_eval.csv")
     eval_probe.to_csv(save_path)
 

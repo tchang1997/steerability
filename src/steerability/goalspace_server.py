@@ -11,7 +11,7 @@ yaml = YAML(typ="safe")
 
 from goals import DEFAULT_GOALS, Goalspace
 
-GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v11.json") 
+GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v12.json") 
 with open("config/seed_data/magic_numbers.yml", "r") as f:
     NORMALIZATION = yaml.load(f)
 
@@ -36,6 +36,7 @@ app = FastAPI()
 class InferenceRequest(BaseModel):
     texts: list[str]
     normalize: bool = True
+    return_pandas: bool = True
 
 @app.get("/health")
 async def health():
@@ -53,7 +54,7 @@ async def goalspace(request: InferenceRequest):
     request_id = str(uuid.uuid4())
     on_receive("/goalspace", request_id, request.model_dump_json())
     try:
-        results_df = GOALSPACE(request.texts)
+        results_df = GOALSPACE(request.texts, return_pandas=request.return_pandas)
         if request.normalize:
             for goal in results_df.columns:
                 goal_min, goal_max = NORMALIZATION[goal]["min"], NORMALIZATION[goal]["max"]

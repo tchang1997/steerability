@@ -71,6 +71,18 @@ class SteerabilityProbeConfig:
         default=float('inf'),
         metadata={"help": "Maximum sample weight for clipping."}
     )
+    cross_probes: bool = field(
+        default=True,
+        metadata={"help": "Whether to generate cross-probes."}
+    )
+    train_probe_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "Load a training dataset from another run. Useful for replications."}
+    )
+    test_probe_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "Load a test probe from another run."}
+    )
 
 @dataclass
 class GoalspaceServerConfig:

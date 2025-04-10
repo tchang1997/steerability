@@ -74,7 +74,7 @@ class LLMInteractor(object):
         if os.path.isfile(api_config):
             with open(api_config, "r") as f:
                 api_config = json.load(f)
-                if re.search(r"[^\w\d.-]", llm_name):
+                if re.search(r"[^\w\d.\-\+]", llm_name):
                     if "/" in llm_name:
                         print("`/` detected in model name. Checking HuggingFace to ensure model exists.")
                         from huggingface_hub import HfApi
@@ -177,6 +177,7 @@ class LLMInteractor(object):
         raw_inputs = prompts.str.cat(probe["text"], sep=self.inst_context_delimiter)
         llm_outputs = self.call_llm(raw_inputs, verbose=verbose)
 
+        # for a speedup, can we attach this to a server?
         goalspace = Goalspace.create_default_goalspace_from_probe(probe)
         goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
         out_normed = renormalize_goalspace(seed_data, goalspace_out)
@@ -192,8 +193,8 @@ class LLMInteractor(object):
             ], axis=1)
         else:
             steerability_data = pd.concat([
-                probe.loc[np.tile(probe.index, self.num_generations)].reset_index(drop=True),
-                prompts.loc[np.tile(prompts.index, self.num_generations)].reset_index(drop=True),
+                probe.loc[np.repeat(probe.index, self.num_generations)].reset_index(drop=True),
+                prompts.loc[np.repeat(prompts.index, self.num_generations)].reset_index(drop=True),
                 raw_inputs,
                 llm_outputs,
                 goalspace_out,

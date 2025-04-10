@@ -1,0 +1,19 @@
+probe: "./training_probes/steerability_2d_in_3d_128x8_4xlopo_train.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    chat_type: "vllm"
+    cache_file: "vllm-meta-llama3-8b-lora_4xlopo.tsv"
+    other_kwargs:
+        port: 16384 
+        max_simul_calls: 16 # 256 concurrent is the max we seem to be able to handle (max_simul_calls * num_generations)
+        timeout: 6000 # WHAT THE
+        text_gen_kwargs: # in sammo-language
+            randomness: 1.0
+            num_generations: 16
+            frequency_penalty: 0.1
+            min_p: 0.2
+inst_addons:
+    disambig: True
+experiment_name: "llama3.1_8b_2d_in_3d_4xlopo_16shot"
+seed: 42

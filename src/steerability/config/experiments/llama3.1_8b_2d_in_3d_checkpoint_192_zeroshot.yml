@@ -1,7 +1,7 @@
-probe: "./training_probes/steerability_2d_in_3d_128x8_double_trouble_ipo_beta_train.csv" # yes, probe is incorrectly named
+probe: "./training_probes/steerability_2d_in_3d_64x16_double_trouble_ipo_beta_train.csv" # yes, probe is incorrectly named
 prompt_strategy: "direct"
 llm_settings:
-    llm_name: "steer-lora-192"
+    llm_name: "steer-lora-xtreme"
     chat_type: "vllm"
     cache_file: "vllm-meta-llama3-8b-lora.tsv"
     other_kwargs:
@@ -13,5 +13,5 @@ llm_settings:
             num_generations: 1
 inst_addons:
     disambig: True
-experiment_name: "llama3.1_8b_2d_in_3d_ckpt-192_zeroshot"
+experiment_name: "llama3.1_8b_2d_in_3d_extreme_zeroshot"
 seed: 42

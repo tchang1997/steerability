@@ -45,8 +45,12 @@ class Goalspace(object):
         self.cache_path = cache_path
         self.cache_modified = False
         if os.path.isfile(cache_path):
-            with open(cache_path, "r") as f:
-                self.cache = json.load(f)
+            try:
+                with open(cache_path, "r") as f:
+                    self.cache = json.load(f)
+            except Exception:
+                print("Failed to load cache:", cache_path)
+                self.cache = {}
             atexit.register(self.save_cache)
         elif self.cache_path is None:
             self.cache = {}
@@ -124,7 +128,7 @@ class Goalspace(object):
 
                 if self.cache_path is not None: # don't eat up memory if we won't even save
                     self.cache[key] = {**curr_raw_mapping, **mapping_serialized}  
-                    self.cache_modified = True
+                    self.cache_modified = True 
             goalspace_mappings.append(mapping)
         if return_pandas:
             return pd.DataFrame(goalspace_mappings, columns=self.get_goal_names(snake_case=True))
@@ -302,6 +306,7 @@ class DetoxifyModel(Model):
         if self.model is None or force_reload:
             print("Loading toxicity classifier...")
             self.model = Detoxify('original', device=self.device)
+            self.max_len = self.model.tokenizer.model_max_length - self.model.tokenizer.num_special_tokens_to_add()
         self.tokenizer_cache = {} # for rechunking only
         return self.model
 

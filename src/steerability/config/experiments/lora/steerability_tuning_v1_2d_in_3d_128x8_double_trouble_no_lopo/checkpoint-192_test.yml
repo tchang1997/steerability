@@ -1,0 +1,15 @@
+cache_file: vllm-meta-llama3.1-8b-lora_steerability_tuning_v1_2d_in_3d_128x8_double_trouble_no_lopo_checkpoint-192.tsv
+experiment_name: steerability_tuning_v1_2d_in_3d_128x8_double_trouble_no_lopo/checkpoint-192_test
+inst_addons: {disambig: true}
+llm_settings:
+  cache_file: vllm-meta-llama3-8b-lora_v2.tsv
+  chat_type: vllm
+  llm_name: steerability_tuning_v1_2d_in_3d_128x8_double_trouble_no_lopo_checkpoint-192
+  other_kwargs:
+    max_simul_calls: 128
+    port: 16384
+    text_gen_kwargs: {num_generations: 1, randomness: 0.0}
+    timeout: 6000
+probe: ./training_probes/steerability_2d_in_3d_128x8_evaluation_test.csv
+prompt_strategy: direct
+seed: 42
