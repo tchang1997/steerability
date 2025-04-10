@@ -6,10 +6,59 @@ Note this is very early-stage work and will change in the future. This work was 
 
 ## Steerability Tuning
 
-[UNDER CONSTRUCTION]
+### Training
+
+Training proceeds from a custom fork of `trl`. We leverage `accelerate` for multi-GPU fine-tuning. All our experiments use 2 GPUs for training with 2 gradient accumulation steps; YMMV if you use different settings. First, you must launch a vLLM server via `trl`:
+```
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=2,3 trl vllm-serve \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 9876 --host localhost \
+    --enable_prefix_caching True \
+    --max_model_len 4096 \
+    --dtype bfloat16 \
+    --gpu_memory_utilization 0.8 \
+    --tensor_parallel_size 2
+```
+Once that's running, this command will start a training run for a config file:
+```
+NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1 accelerate launch \
+    --num-processes 2 \
+    --main_process_port 29504 \
+    rl.py --config config/rl/my_training_run.yml
+```
+On some machines where `/tmp` is mounted as `noexec`, you may need to set `TMPDIR` to point to a directory where you have execute permissions to play nice with some Torch Inductor + Triton stuff under the hoo
+
+Check `config/rl` for example config files, and `utils/train_config_dataclasses.py` for settings that are outside `GRPOConfig` and `TrainingArguments` in `trl` and `transformers`, respectively. 
+
+### Evaluation
+
+By default, our training runs save 8 checkpoints, all of which are LoRA adapters. The save path will be specified by the `output_dir` key in the training config YAML file. You can simply do
+```
+bash load_lora.sh {your_model_output_dir}
+```
+and this will automatically skip up a vLLM instance. Under the hood, it's really running this command:
+```
+VLLM_ALLOW_RUNTIME_LORA_UPDATING=True \
+USE_FASTSAFETENSOR=true \
+VLLM_USE_V1=1 \
+vllm serve meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --port 16384 \
+  --enable-lora \
+  --dtype bfloat16 \
+  --max-lora-rank 256 \
+  --lora-dtype bfloat16 \
+  --max-model-len 4096 \
+  --gpu-memory-utilization 0.6 \
+  --lora-modules $LORA_MODULES
+```
+*i.e.,* the same settings used during our default training runs, where `$LORA_MODULES` is generated dynamically by listing the checkpoints in a particular directory. Do note that usage of `VLLM_USE_V1=1` is obligatory here; there seems to be some device-setting bugs when `VLLM_USE_V1` is not set. If you want to change any of these defaults, you can modify `load_lora.sh` (or file a PR where we pass them in as arguments)! Then, to evaluate, you can create config files in the same format as our other experiments. Or, just do this AFTER the vLLM server is up and running:
+```
+python create_eval_configs.py
+```
+This will ping vLLM to get a list of adapters and auto-generate the config files in a subdirectory. It also generates some nice scripts `eval_train.sh` and `eval_test.sh` in the relevant subdirectories for you to run eval on the default training and test sets. 
+
 
 ## Steerability Reports
-
 We design a steerability probe for comparing steerability across LLMs. In short, we define a vector-space of goals (goal-space) and model user requests and texts as vectors in goal-space. The LLM's behavior can then be thought of as a vector operation, and we can compare how the LLM's behavior vector matches with the user's request. Formally, steerability becomes a normalized dot product between "what we wanted" and "what we got." Our steerability metric is a real number, with the best value being 1. Check out [our paper](https://openreview.net/forum?id=y2J5dAqcJW) for a formal definition!
 
 |Model|Steerability|
@@ -33,7 +82,25 @@ You can use the same steerability probe that we've created out of the box at `da
 python create_steerability_report.py --config [CONFIG] --api-config [API_KEY_FILE]
 ```
 
-For examples of config files, you can check out `config/mockup.yml` or `config/gpt4_mini.yml`. Currently, we support interacting with the OpenAI API and DeepInfra API.
+For examples of config files, you can check out `config/mockup.yml` or `config/gpt4_mini.yml`. Currently, we support interacting with the OpenAI API, DeepInfra API, and vLLM.
+
+## Evaluating your own LLM
+Our steerability evaluation framework supports any vLLM-supported model via their OpenAI-compatible server.   Simply write a config of the following form:
+```
+TODO
+```
+
+Feel free to use our pre-generated steerability probes, or generate your own below. 
+
+## Submitting your own LLM outputs to our steerability evaluation server
+
+TODO: We are also working on an evaluation server to allow researchers to submit LLM-generated responses to a given steerability probe for evaluation on our end. We aim to support evaluation on the following probes used in our paper:
+* **SteerBench-3D-in-10D** (original)
+* **SteerBench-ND-in-10D** for N = 1, 2, 4 
+* **SteerBench-2D-in-3D-split_1** (used for training our models)
+* **SteerBench-2D-in-3D-split_2** (used for testing our models)
+
+We encourage submissions to focus on **SteerBench-3D-in-10D** for direct comparability with our evaluation, but release all probes publicly for transparency.  
 
 # Conducting your own steerability analysis from scratch
 
@@ -129,3 +196,12 @@ This step is a little more involved. First, it's highly recommended that you cre
 4. `vllm serve [ORG_NAME/MODEL_NAME] [--your-args-here]`
 
 You can verify that the server is running via `curl http://localhost:PORT/v1/models`. 
+
+## Other
+
+### LLM as judge:
+Here's the command used to compare pre- vs. post-RL rewrites:
+```
+python utils/pairwise_goal_validation.py --probe [probe_1_path] [probe_2_path] --no-sample --source-col left_llm_response --response-col right_llm_response --source-goal-prefix left_output_ --response-goal-prefix right_output_ --name pre_vs_post_rl_best_on_test
+```
+Do note that this'll attach to whichever vLLM instance that is already running. 

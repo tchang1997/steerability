@@ -30,7 +30,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "ruamel.yaml==0.18.10",
-    "vllm==0.7.2",
+    "vllm==0.8.1",
     "wandb==0.19.6",
 ]
 
@@ -42,3 +42,6 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
