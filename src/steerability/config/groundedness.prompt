@@ -1,0 +1,15 @@
+You are an impartial judge comparing two texts. Your task is to determine whether these two texts could possibly be describing the same event or story, or otherwise be variations of the same text. The two texts may vary drastically in tone, formality, verbosity, length, or other aspects of style and wording, and can be drawn from a variety of sources, including but not limited to news articles, creative writing, social media, and others. However, the texts should very broadly discuss the same topics and/or events. 
+
+**Version A:**
+$version_a
+
+**Version B:**
+$version_b
+
+Answer yes or no and provide a brief rationale (1-2 sentences). Return only a valid JSON object in the following format, with no additional commentary.
+```
+    {
+        "answer": [Yes|No],
+        "rationale": [your reasoning],
+    }
+```

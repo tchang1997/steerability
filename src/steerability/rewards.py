@@ -7,7 +7,7 @@ import re
 from aiohttp import ClientSession, ServerDisconnectedError
 import numpy as np
 
-from utils.model_output_cleaner import clean_model_output, is_chat_completion_format
+from steerability.utils.model_output_cleaner import clean_model_output, is_chat_completion_format
 
 from beartype import beartype
 from typing import Any, List, Optional, Union
@@ -21,6 +21,12 @@ async def send_request(
         port: Optional[int] = 12121,
         max_retries: Optional[int] = 10,
     ):
+    """
+        Yes, in theory, there are definitely easier ways than "rewards as a service," but if we want the rewards
+        to implement any arbitrary function that might be hard to parallelize using standard Python, the server
+        is nice and can, for example, host pre-trained models in paralell, call its own APIs -- anything without
+        having to worry about pickle-ability
+    """
     inference_url = f"http://127.0.0.1:{port}/goalspace" # why stop here? We can even throw vLLM in here someday
     payload = {"texts": texts}
     if goals is not None:
@@ -112,6 +118,17 @@ def steerability_reward_wrapper(completions, **kwargs) -> Union[List[float], np.
             rewards = -np.sqrt(macro_negreward)         
     return rewards
 
+def scalar_rejection(a, b): # b onto a
+    #return np.sqrt(np.linalg.norm(b, axis=1) ** 2 - (np.sum(a * b, axis=1) / (np.linalg.norm(a, axis=1) + 1e-8)) ** 2)
+    b_norm = np.sum(b * b, axis=1) + 1e-8
+    proj = (np.sum(a * b, axis=1) / b_norm).reshape(-1, 1) * b  # shape [n, d]
+    rejection_vec = a - proj
+    rejection = np.linalg.norm(rejection_vec, axis=1)
+    return rejection
+
+def scalar_projection(a, b):
+    return np.sum(a * b, axis=1) / (np.linalg.norm(b, axis=1) + 1e-8)
+
 def orthogonality_wrapper(completions, **kwargs):
     completions_tuple = prepare_completions_for_goalspace(completions)
     mappings = get_mappings(completions_tuple, kwargs["model_name"][0])
@@ -120,16 +137,20 @@ def orthogonality_wrapper(completions, **kwargs):
     z_0 = np.array([kwargs[f"source_{goal}"] for goal in goals_to_evaluate]).T 
     z_hat = np.array([mappings[goal] for goal in goals_to_evaluate]).T
 
-    # (z_star - z_hat) -> oproj (z_hat - z_0) 
-    dot_product = np.sum((z_star - z_0) * (z_star - z_hat), axis=1) 
-    norm_sq_A = np.sum(np.square(z_star - z_0), axis=1)  
-    norm_sq_B = np.sum(np.square(z_star - z_hat), axis=1)
-    proj_sq = np.clip((dot_product ** 2) / (norm_sq_A + 1e-8), 0, 1) # don't divide by zero when model regurgitates same text. dot product will be zero in this case anyway
-    rejection = np.sqrt(norm_sq_B - proj_sq)
-    # -> what % of movement was wasted
+    # (z_star - z_hat) -> oproj (z_hat - z_0)
+    dist_from_source = z_hat - z_0  # shape [n, d]
+    dist_requested = z_star - z_0  # shape [n, d]
+    dist_to_goal = z_star - z_hat
+    dist_from_goal_norm = np.linalg.norm(dist_from_source, axis=1) 
+    dist_requested_norm = np.linalg.norm(dist_requested, axis=1)
+
+    denom = dist_from_goal_norm + 1e-4 * (dist_requested_norm + 1e-8)
+    rej = scalar_rejection(dist_to_goal, dist_requested)
     if kwargs.get("normalize_ortho", False):
-        rejection = np.clip(rejection / (np.linalg.norm(z_hat - z_0, axis=1) + 1e-8), 0, 1)
-    return -rejection
+        ortho = np.clip(rej / denom, 0, 1) 
+    else:
+        ortho = rej
+    return -ortho 
 
 def miscalibration_wrapper(completions, **kwargs):
     completions_tuple = prepare_completions_for_goalspace(completions)
@@ -139,20 +160,20 @@ def miscalibration_wrapper(completions, **kwargs):
     z_0 = np.array([kwargs[f"source_{goal}"] for goal in goals_to_evaluate]).T 
     z_hat = np.array([mappings[goal] for goal in goals_to_evaluate]).T
     
-    # (z_star - z_hat) -> proj (z_star - z_0) 
-    dot_product = np.sum((z_star - z_0) * (z_star - z_hat), axis=1) 
-    norm_A = np.linalg.norm(z_star - z_0, axis=1)  
-    # Compute scalar projection (absolute value)
-    scalar_projection = np.abs(dot_product / norm_A)
-    # -> what % of goal is left to go
+    dist_to_goal = z_star - z_hat
+    dist_requested = z_star - z_0 
+    denom = np.linalg.norm(dist_requested, axis=1) + 1e-8
+    abs_proj_dist = np.abs(scalar_projection(dist_to_goal, dist_requested))
     if kwargs.get("normalize_miscal", False):
-        scalar_projection /= norm_A
-    return -scalar_projection
+        miscal = abs_proj_dist / denom
+    else:
+        miscal = abs_proj_dist 
+    return -miscal
 
 def get_goal_neg_abs_err(completions, goal_name, **kwargs):
     completions_tuple = prepare_completions_for_goalspace(completions)
     mappings = get_mappings(completions_tuple, kwargs["model_name"][0]) 
-    return np.abs(np.array(kwargs[f"target_{goal_name}"]) - np.array(mappings[goal_name]))
+    return -np.abs(np.array(kwargs[f"target_{goal_name}"]) - np.array(mappings[goal_name]))
     
 def get_reading_difficulty_err(completions, **kwargs):
     return get_goal_neg_abs_err(completions, "reading_difficulty", **kwargs)
@@ -165,6 +186,12 @@ def get_joy_err(completions, **kwargs):
 
 def get_surprise_err(completions, **kwargs):
     return get_goal_neg_abs_err(completions, "surprise", **kwargs)
+
+def get_textual_div_error(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "textual_diversity", **kwargs)
+
+def get_formality_err(completions, **kwargs):
+    return get_goal_neg_abs_err(completions, "formality", **kwargs)
 
 def format_reward_func(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
@@ -190,4 +217,6 @@ REGISTRY = {
     "tl_error": get_text_length_err,
     "j_error": get_joy_err,
     "su_error": get_surprise_err,
+    "td_error": get_textual_div_error,
+    "fm_error": get_formality_err,
 }

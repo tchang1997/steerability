@@ -21,7 +21,7 @@ def get_args():
     psr.add_argument("--config", required=True, type=str, help="YAML configuration file.")
     psr.add_argument("--api-config", required=True, type=str, help="File storing API key.")
     psr.add_argument("--inst-database", type=str, help="Auxiliary data file for advanced instructions (e.g., CoT grounded in specific examples)")
-    psr.add_argument("--seed-data", type=str, help="Seed data used for steerability probe for normalization.", default="./data/default_seed_data_goalspace_mapped.csv")
+    psr.add_argument("--seed-data", type=str, help="Seed data used for steerability probe for normalization.", default="./data/v2_seed_data_goalspace_mapped.csv")
     psr.add_argument("--nrows", type=int, help="Number of rows of the steerability probe to read. Useful for debugging.")
     psr.add_argument("--overwrite", action="store_true")
     return psr.parse_args()

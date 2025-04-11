@@ -11,7 +11,7 @@
 
 """
 from argparse import ArgumentParser
-import hashlib
+import asyncio
 import os
 
 from beartype import beartype
@@ -22,7 +22,8 @@ from sklearn.metrics import roc_auc_score
 from ruamel.yaml import YAML
 from tqdm.auto import tqdm
 
-from goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
+from steerability.goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
+from steerability.rewards import map_to_goalspace
 
 from typing import Optional, Union
 
@@ -58,6 +59,7 @@ def normalize_goals(goalspace_df: pd.DataFrame, range: Optional[Union[float, int
     for col in goals:
         lower_bound = np.percentile(goalspace_df[col], min_q)
         upper_bound = np.percentile(goalspace_df[col], max_q)
+        print(f"Goal {col} is normalized to [{lower_bound}, {upper_bound}]")
         goalspace_df[f"source_{col}"] = (goalspace_df[col] - lower_bound) / (upper_bound - lower_bound)
         goalspace_df[f"source_{col}"] = goalspace_df[f"source_{col}"].clip(0, 1)
     return goalspace_df
@@ -163,22 +165,23 @@ if __name__ == '__main__':
     psr.add_argument("--text-col", type=str, default="text", help="Column name storing source texts in the seed data.")
     psr.add_argument("--cache-name", type=str, default="_goalspace", help="Goalspace mapping cache file.")
     psr.add_argument("--nrows", type=int, default=None)
+    psr.add_argument("--max-workers", type=int, default=1)
+    psr.add_argument("--uvicorn-port", type=int, default=9999)
+    psr.add_argument("--use-async", action="store_true")
     args = psr.parse_args()
     with open(args.config, "r") as f:
         cfg = yaml.load(f)
     probe_settings = cfg["args"]
 
     dataset = pd.read_csv(args.seed_data, index_col=0)
+    cache_path = os.path.join("./cache/", f"{args.cache_name}.json")
     if args.nrows is not None:
         dataset = dataset.iloc[:args.nrows]
     if args.goals is None:
-        goalspace = Goalspace(ALL_GOALS)
+        goalspace = Goalspace(DEFAULT_GOALS, cache_path=cache_path)
     else:
-        goalspace = Goalspace([GoalFactory.get_default(g) for g in args.goals]) # future: make it possible to override and pass kwargs to the downstream classes
+        goalspace = Goalspace([GoalFactory.get_default(g) for g in args.goals], cache_path=cache_path) # future: make it possible to override and pass kwargs to the downstream classes
 
-    # cache = None
-    # if args.cache_name is not None:
-    #     cache = GoalspaceCache(args.cache_name)
     need_concat = False
     goalspace_cols = goalspace.get_goal_names(snake_case=True)
     normalized_cols = ["source_" + c for c in goalspace_cols]
@@ -187,13 +190,20 @@ if __name__ == '__main__':
         goalspace_df = dataset
     else:
         need_concat = True
-        goalspace_df = goalspace(dataset[args.text_col].tolist())
+        if args.use_async:
+            print(f"Pinging goalspace server at port {args.uvicorn_port}...")
+            goalspace_dict = asyncio.run(map_to_goalspace(dataset[args.text_col].tolist(), port=args.uvicorn_port, n_workers=args.max_workers))
+            goalspace_df = pd.DataFrame(goalspace_dict)
+        else:
+            goalspace_df = goalspace(dataset[args.text_col].tolist(), max_workers=args.max_workers)
 
     if set(normalized_cols).issubset(set(dataset.columns)):
         print("Normalized goal-space mappings detected; skipping recalculation.")
     else:
         goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
     
+    if need_concat: # not {"text", "source"}.issubset(set(goalspace_df.columns)): # if pre-existing probe has "text", "source" -- ok to skip concat
+        goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
     allowed_columns = ["text", "source"] + goalspace_cols + normalized_cols
     goalspace_df = goalspace_df[allowed_columns]
 
@@ -209,8 +219,7 @@ if __name__ == '__main__':
     #    print("Sampling weights found; skipping weight calculation.")
 
     # only concat if we needed to recompute goal-space mappings and sampling weights
-    if need_concat: # kinda hacky, yes
-        goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
+
     steerability_probe = create_final_probe(
         goalspace_df,
         steering_goals=weighting_goals,

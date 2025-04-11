@@ -3,16 +3,19 @@ import atexit
 import base64
 import bisect
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
 
 from convokit import PolitenessStrategies
 from detoxify import Detoxify
+from empath import Empath
 from filelock import FileLock
 from nltk.tokenize import sent_tokenize, word_tokenize
 import numpy as np
 import pandas as pd
+from pylats import lats
 import spacy
 from taaled import ld
 import textstat
@@ -90,24 +93,26 @@ class Goalspace(object):
 
     def __call__(
         self,
-        x: Union[List[str], str],
+        texts: Union[List[str], str],
         return_pandas: Optional[bool] = True,
         show_progress: Optional[bool] = True,
+        max_workers: Optional[int] = 1,
     ):
-        if not isinstance(x, list):
-            x = [x]
+        if not isinstance(texts, list):
+            texts = [texts]
         goalspace_mappings = []
-        for source_text in tqdm(x, disable=not show_progress):
+
+        def process_single_text(source_text):
             key = self.encode_key(source_text)
-            try: 
+            try:
                 raw_mapping = self.cache[key]
-                mapping = np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
+                return np.array([raw_mapping[goal_fn.__class__.__name__] for goal_fn in self.goal_dimensions])
             except KeyError:
                 mapping = []
                 for goal_fn in self.goal_dimensions:
                     try:
                         goal_val = goal_fn(source_text)
-                    except RuntimeError as e: # mapper functions failed
+                    except RuntimeError as e:
                         problem_goal = goal_fn.__class__.__name__
                         print(f"MAPPING FAILED DURING GOAL - {problem_goal}")
                         print("Failed to map source text:", source_text)
@@ -117,19 +122,25 @@ class Goalspace(object):
                         print("Saved problem text to:", problem_file)
                         raise e
                     mapping.append(goal_val)
-                mapping = np.array(mapping) # in theory, there should be a more efficient way to parallelize + cache
+                mapping = np.array(mapping)
 
-                curr_raw_mapping = {}
-                if source_text in self.cache: 
-                    curr_raw_mapping = self.cache[source_text]
+                curr_raw_mapping = self.cache.get(source_text, {})
                 mapping_serialized = {
                     map_fn.__class__.__name__: map_val for map_fn, map_val in zip(self.goal_dimensions, mapping)
                 }
 
-                if self.cache_path is not None: # don't eat up memory if we won't even save
-                    self.cache[key] = {**curr_raw_mapping, **mapping_serialized}  
-                    self.cache_modified = True 
-            goalspace_mappings.append(mapping)
+                if self.cache_path is not None:
+                    self.cache[key] = {**curr_raw_mapping, **mapping_serialized}
+                    self.cache_modified = True
+
+                return mapping
+
+        if max_workers > 1:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                goalspace_mappings = list(tqdm(executor.map(process_single_text, texts), total=len(texts), disable=not show_progress))
+        else:
+            goalspace_mappings = [process_single_text(text) for text in tqdm(texts, disable=not show_progress)]
+
         if return_pandas:
             return pd.DataFrame(goalspace_mappings, columns=self.get_goal_names(snake_case=True))
         else:
@@ -151,6 +162,7 @@ class Goalspace(object):
             except Exception:
                 print("Error when reconstructing goalspace for goal", name)
                 continue
+        print("Creating goalspace with dimensions:", goal_dimensions)
         return cls(goal_dimensions)
 
 class GoalFactory:
@@ -467,7 +479,8 @@ class TextualDiversity(Goal):
     def __call__(self, text: str):
         if len(word_tokenize(text)) < 50:
             print("Less than 50 words in evaluation text. This may lead to an inaccurate diversity measure.")
-        ldvals = ld.lexdiv(text)
+        cleaned = lats.Normalize(text, lats.ld_params_en)
+        ldvals = ld.lexdiv(cleaned.toks)
         return ldvals.mtld 
 
 @GoalFactory.register_goal("text_length")
@@ -475,6 +488,68 @@ class TextLength(Goal):
     @beartype
     def __call__(self, text: str):
         return len(word_tokenize(text))
+    
+@GoalFactory.register_goal("positive_emotion")
+class PositiveEmotion(Goal):
+    # From Empath; Fast et al., (2016). We anchor to positive_emotion since it is also in LIWC (Pennebaker et al., '01).
+    _empath_engine = None
+    _empath_pos_categories = ["positive_emotion"] # could consider adding "optimism" or "achievement" later
+
+    @classmethod
+    def get_empath_engine(cls):
+        if cls._empath_engine is None:
+            cls._empath_engine = Empath()
+        return cls._empath_engine
+
+    @beartype
+    def __call__(self, text: str):
+        engine = self.get_empath_engine()
+        result = engine.analyze(text, categories=self._empath_pos_categories, normalize=True)
+        return np.array([result[cat] for cat in self._empath_pos_categories]).mean()
+
+@GoalFactory.register_goal("formality")
+class Formality(Goal):
+    # via the Heylighen-Dewaele score 
+    _spacy_model = None
+
+    @classmethod
+    def get_spacy_model(cls):
+        if cls._spacy_model is None:
+            cls._spacy_model = spacy.load("en_core_web_sm")
+        return cls._spacy_model 
+
+    @beartype
+    def __call__(self, text: str):
+        spacy_model = self.get_spacy_model()
+        pos_counts = {
+            "NOUN": 0,
+            "ADJ": 0,
+            "ADP": 0,  
+            "ARTICLE": 0, # IMPORTANT! We cannot use "DET" directly because the/a/an are non-diectic, but this/that are! See Kleiber (1991), 
+            "PRON": 0,
+            "VERB": 0,
+            "ADV": 0,
+            "INTJ": 0
+        }
+        doc = spacy_model(text)
+        total = 0
+        for token in doc:
+            if token.is_alpha:
+                total += 1
+                pos = token.pos_
+                word = token.text.lower()
+                if pos in pos_counts and pos != "DET":
+                    pos_counts[pos] += 1
+                elif pos == "DET" and word in {"a", "an", "the"}:
+                    pos_counts["ARTICLE"] += 1
+        freqs = {k: v / total * 100 for k, v in pos_counts.items()}
+
+        # Apply Heylighen & Dewaele formula (pg. 309, VARIATION IN THE CONTEXTUALITY OF LANGUAGE)
+        diectic_coeff = freqs["NOUN"] + freqs["ADJ"] + freqs["ADP"] + freqs["ARTICLE"]
+        non_diectic_coeff = freqs["PRON"] + freqs["VERB"] + freqs["ADV"] + freqs["INTJ"]
+        F = (diectic_coeff - non_diectic_coeff + 100) / 2
+        return F
+
 
 class DetoxifyAspect(Goal):
     def __init__(self, goal_model_cache: MultiGoalCache, aspect_name: str):
@@ -518,15 +593,17 @@ class IdentityAttack(DetoxifyAspect):
 
 DEFAULT_GOALS = [
     GoalFactory.get_default("reading_difficulty"),
-    GoalFactory.get_default("politeness"),
-    GoalFactory.get_default("anger"),
-    GoalFactory.get_default("disgust"),
-    GoalFactory.get_default("fear"),
-    GoalFactory.get_default("joy"),
-    GoalFactory.get_default("sadness"),
-    GoalFactory.get_default("surprise"),
+    #GoalFactory.get_default("politeness"),
+    #GoalFactory.get_default("anger"),
+    #GoalFactory.get_default("disgust"),
+    #GoalFactory.get_default("fear"),
+    #GoalFactory.get_default("joy"),
+    #GoalFactory.get_default("sadness"),
+    #GoalFactory.get_default("surprise"),
     GoalFactory.get_default("textual_diversity"),
-    GoalFactory.get_default("text_length")
+    GoalFactory.get_default("text_length"),
+    #GoalFactory.get_default("positive_emotion"),
+    GoalFactory.get_default("formality"),
 ]
 TOXICITY_GOALS = [
     GoalFactory.get_default("toxicity"),

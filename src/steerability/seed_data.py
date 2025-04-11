@@ -55,6 +55,7 @@ def process_dataframe(
         df: Any,
         feature_col: str,
         paragraph_chunksize: Optional[int] = None, # 50 is probably a good setting to keep things well below 2048 tokens
+        min_words_per_doc: Optional[int] = 50,
         max_words_per_doc: Optional[int] = 2048,
         word_overflow_behavior: Optional['str'] = 'drop',
         newlines_are_sentences: Optional[bool] = False, # some people on Reddit do not believe in using punctuation. This causes errors.
@@ -113,22 +114,22 @@ def process_dataframe(
     print("======== STAGE 3/3 - POSTPROCESS ========")
     if newlines_are_sentences:
         print("\t- newlines_are_sentences=True: treating newlines `\\n` as sentences")
-        final_df["text"] = final_df["text"].progress_apply(lambda x: re.sub("(?:[^.!?\s])\r?\n+", ". ", x))
+        final_df["text"] = final_df["text"].progress_apply(lambda x: re.sub(r"(?:[^.!?\s])\r?\n+", ". ", x))
     else:
         print("\t- newlines_are_sentences=False: PASSTHROUGH")
 
-    if max_words_per_doc is not None:
-        tqdm.pandas(desc=f"Checking text lengths (max. {max_words_per_doc})", leave=False)
+    if max_words_per_doc is not None or min_words_per_doc is not None:
+        tqdm.pandas(desc=f"Checking text lengths (min.: {min_words_per_doc}, max.: {max_words_per_doc})", leave=False)
         lengths = final_df["text"].progress_apply(lambda x: len(nltk.word_tokenize(x)))
         orig_length = len(final_df)
         if word_overflow_behavior == "drop":
-            final_df = final_df[lengths <= max_words_per_doc]
+            final_df = final_df[(lengths <= max_words_per_doc) & (lengths >= min_words_per_doc)]
         else:
             raise NotImplementedError()
 
-        print(f"\t- max_words_per_doc={max_words_per_doc}: enforced word limits with behavior `{word_overflow_behavior}`; N = {orig_length} -> {len(final_df)}")
+        print(f"\t- min_words_per_doc={min_words_per_doc},max_words_per_doc={max_words_per_doc}: enforced word limits with behavior `{word_overflow_behavior}`; N = {orig_length} -> {len(final_df)}")
     else:
-        print("\t- max_words_per_doc=None: PASSTHROUGH")
+        print("\t- min_words_per_doc=None,max_words_per_doc=None: PASSTHROUGH")
 
     if select_first is not None:
         print(f"\t- select_first={select_first}: slicing first {select_first} points")

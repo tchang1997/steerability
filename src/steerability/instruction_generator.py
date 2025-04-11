@@ -18,9 +18,13 @@ from typing import Any, Optional
 NO_EXPLAIN = " Respond with only the rewritten text and do not explain your response."
 DISAMBIG = " You MUST not change anything else about the other parts of the text, even if it makes the rewritten text sound unnatural or otherwise awkward."
 # " You must keep the tone of the text and other aspects of the text the same as the original unless explicitly instructed otherwise."
-MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
-LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
-GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
+#MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
+#LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
+#GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
+
+MORE_ADJ_PHRASES = ["harder to read", "more polite", "use more diverse language", "longer", "more positive", "more formal"]
+LESS_ADJ_PHRASES = ["easier to read", "less polite", "use less diverse language", "shorter", "less positive", "more informal"]
+GOAL_INDEX = ["reading_difficulty", "politeness", "textual_diversity", "text_length", "positive_emotion", "formality"]
 
 DEEPSEEK_SOMETIMES_SECTION_BREAK = "\n---\n\n"
 
@@ -122,7 +126,7 @@ class DirectTemplateInstruction(InstructionGenerator):
                     modifier = "much "
                 elif np.abs(val) < 0.2:
                     modifier = "slightly "
-                # else closer than 0.2:
+                # else in [0.2, 0.5]:
                 #   no modifier
 
                 if modifier is not None:

@@ -1,6 +1,6 @@
-import asyncio
 import logging
 import uuid
+import os
 
 from fastapi import FastAPI, HTTPException
 import numpy as np
@@ -9,10 +9,10 @@ from ruamel.yaml import YAML
 
 yaml = YAML(typ="safe")
 
-from goals import DEFAULT_GOALS, Goalspace
+from steerability.goals import DEFAULT_GOALS, Goalspace
 
-GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path="cache/rl_goalspace_cache_v12.json") 
-with open("config/seed_data/magic_numbers.yml", "r") as f:
+GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path=f"cache/rl_cache_{os.getpid()}.json") 
+with open("config/seed_data/magic_numbers_v2.yml", "r") as f:
     NORMALIZATION = yaml.load(f)
 
 log_file = "goalspace_server.log"

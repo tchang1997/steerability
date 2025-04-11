@@ -1,0 +1,8 @@
+probe: "./data/steerbench_v2.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "gpt-3.5-turbo-0125"
+    chat_type: "openai"
+    cache_file: "gpt3.5_oai.tsv"
+experiment_name: "steerbench_v2_gpt35_turbo_0125"
+seed: 42

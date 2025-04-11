@@ -31,7 +31,7 @@ MAX_RESPONSE_LENGTH_FOR_JUDGE = 4096 # catch degenerate texts
 def maybe_truncate(s: str, tokenizer: AutoTokenizer) -> str:
     input_ids = tokenizer.encode(s, truncation=True, max_length=MAX_RESPONSE_LENGTH_FOR_JUDGE)
     if len(input_ids) == MAX_RESPONSE_LENGTH_FOR_JUDGE:
-        print(f"Truncated overlong response:", s[:5000] + "...")
+        print(f"Truncated overlong response:", s[:1000] + "...")
         return tokenizer.decode(input_ids, skip_special_tokens=True)
     else:
         return s
@@ -97,13 +97,14 @@ def initialize_chat_instance(
     api_config: str,
     timeout: Optional[int] = 600,
     rate_limit: Optional[int] = 64,
-    max_tokens: Optional[int] = 32000
+    max_tokens: Optional[int] = 32000,
+    cache_suffix: Optional[str] = None,
 ):
     url = f"http://localhost:{port}/v1/models/"
     resp = requests.get(url)
     resp.raise_for_status()
     llm_name = resp.json()["data"][0]["id"]
-    cache_file = llm_name.replace("/", "_") + "_as_judge.tsv"
+    cache_file = llm_name.replace("/", "_") + ("_as_judge.tsv" if cache_suffix is None else cache_suffix)
     print(f"Detected vLLM instance at {url} running {llm_name}. Creating vLLM SAMMO runner with cache {cache_file}.")
     return VLLMOpenAIChat(
         model_id=llm_name,
