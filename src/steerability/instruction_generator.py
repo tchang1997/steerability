@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import pickle
 import re
 import warnings
 
@@ -59,6 +60,7 @@ class InstructionGenerator(object):
         self,
         deltas: pd.DataFrame,
         targets: Optional[pd.DataFrame] = None,
+        **kwargs,
     ): 
         """
             Formally, we define a prompting strategy as a family of conditional distributions of the form
@@ -158,18 +160,22 @@ class DirectTemplateInstruction(InstructionGenerator):
       
     
 
+# METRIC_NOUN_PHRASES = [
+#     "reading level",
+#     "politeness",
+#     "anger",
+#     "disgust",
+#     "fear",
+#     "joy",
+#     "sadness",
+#     "surprise",
+#     "diversity of the text",
+#     "verbosity of the text"
+# ]
 METRIC_NOUN_PHRASES = [
-    "reading level",
-    "politeness",
-    "anger",
-    "disgust",
-    "fear",
-    "joy",
-    "sadness",
-    "surprise",
-    "diversity of the text",
-    "verbosity of the text"
+    "reading difficulty", "politeness", "textual diversity", "length of the text", "positive emotion", "formality"
 ]
+
 class DirectGranularTemplateInstruction(InstructionGenerator):
     def __init__(self, database: Optional[pd.DataFrame] = None):
         super().__init__(database)
@@ -181,10 +187,19 @@ class DirectGranularTemplateInstruction(InstructionGenerator):
         goal_names = deltas.columns.str.replace("delta_", "")
         delta_arr = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values)) # mask = invalid value; i.e., goal is inactive
 
+        metric_phrases_in_use = []
+        for goal in goal_names:
+            try:
+                goal_idx = GOAL_INDEX.index(goal)
+                metric_phrases_in_use.append(self.metric_names[goal_idx])
+            except ValueError:
+                raise ValueError(f"Goal {goal} not supported. Valid goals: {GOAL_INDEX}")
+
         masked_goal_array = np.ma.array(
-                np.repeat(self.metric_names[None, :], len(delta_arr), axis=0),
+                np.repeat(np.array(metric_phrases_in_use)[None, :], len(delta_arr), axis=0),
                 mask=delta_arr.mask
             )
+
         for i in range(len(deltas)):
             intents = []
             for intent, val in zip(masked_goal_array[i].compressed(), delta_arr[i].compressed()):
@@ -194,7 +209,10 @@ class DirectGranularTemplateInstruction(InstructionGenerator):
                 elif val > 0:
                     intent_str = f"\t- Increase "
                 if intent_str is not None:
-                    intent_str += f"the level of {intent} by "
+                    if "of the" in intent_str:
+                        intent_str += f"the {intent} by "
+                    else:
+                        intent_str += f"the level of {intent} by "
                     n_levels = int(np.round(np.abs(val) * 10, 0))
                     intent_str += f"{n_levels} levels."
                     intents.append(intent_str)
@@ -209,6 +227,18 @@ class DirectGranularTemplateInstruction(InstructionGenerator):
 
         return instructions
     
+class NullInstruction(InstructionGenerator):
+    def __init__(self, database: Optional[pd.DataFrame] = None):
+        super().__init__(database) 
+
+    def sample_prompt(self, deltas: np.ndarray, targets: np.ndarray, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
+        instructions = ["Please rewrite the following."] * len(deltas)
+        if disambig:
+            instructions = [inst + DISAMBIG for inst in instructions]
+        if no_explain:
+            instructions = [inst + NO_EXPLAIN for inst in instructions]
+        return instructions
+
 class DirectUnderspecifiedInstruction(InstructionGenerator):
     def __init__(self, database: Optional[pd.DataFrame] = None):
         super().__init__(database)
@@ -237,8 +267,10 @@ class DirectCoTInstruction(DirectTemplateInstruction):
     def __init__(self, database: Optional[pd.DataFrame] = None):
         super().__init__(database)
 
-    def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None):
-        prompts = [f"{p} Briefly discuss your proposed edits before providing the rewritten text, using the following format and replacing the placeholders in []:\n\n## Edits\n\n[your proposed edits]\n\n## Rewritten text\n\n[your rewritten text]" for p in super().sample_prompt(deltas, targets, no_explain=False)]
+    def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
+        prompts = [
+            f"{p} Before outputting the rewritten text, propose and discuss a few concrete edits you might apply to this specific text using the following format and replacing the placeholders in []:\n\n## Edits\n\n[your proposed edits]\n\n## Rewritten text\n\n[your rewritten text]" \
+            for p in super().sample_prompt(deltas, targets, no_explain=no_explain, disambig=disambig)]
         return prompts
 
     def clean_response(self, resp: str):
@@ -320,11 +352,12 @@ class GoalEnumeratedHyperSpecificInstruction(DirectTemplateInstruction):
 
 
 class InstructionSamplingMixin:
-    def add_instructions_to_prompt(self, prompts: List[str], max_instructions_per_prompt: int, no_explain: Optional[bool] = False, disambig: Optional[bool] = False):
+    def add_instructions_to_prompt(self, prompts: List[str], deltas, max_instructions_per_prompt: int, no_explain: Optional[bool] = False, disambig: Optional[bool] = False):
         final_prompts = []
         line_prefix = "\n\t- "
-        for i, prompt in enumerate(prompts):
-            curr_options = self.database[str(i)][0]
+        for (row, delta), prompt in zip(deltas.iterrows(), prompts):
+            deltas_to_key = tuple([f"{col}_{delta[col]}" for col in delta.index])
+            curr_options = self.database[deltas_to_key]
             K = min(max_instructions_per_prompt, len(curr_options))
             sampled_inst = np.random.choice(curr_options, size=K, replace=False)
             instruction_str = line_prefix + line_prefix.join(sampled_inst)
@@ -338,44 +371,58 @@ class InstructionSamplingMixin:
         return final_prompts
 
 
-class InstructionOnly(DirectUnderspecifiedInstruction, InstructionSamplingMixin):
-    def __init__(self, database: Optional[pd.DataFrame] = None, n_instructions: Optional[int] = 3):
+class InstructionOnly(NullInstruction, InstructionSamplingMixin):
+    def __init__(self, database: Optional[pd.DataFrame] = None, n_instructions: Optional[int] = 3, seed: Optional[int] = 42):
         super().__init__(database)
         self.n_instructions = n_instructions
+        self.seed = seed
         
 
     def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None, no_explain: Optional[bool] = False, disambig: Optional[bool] = False):
         prompt = super().sample_prompt(deltas, targets, no_explain=no_explain, disambig=disambig) # underspecified prompt
-        final_prompts = self.add_instructions_to_prompt(prompt, self.n_instructions)
+        np.random.seed(self.seed)
+        final_prompts = self.add_instructions_to_prompt(prompt, deltas, self.n_instructions)
         return final_prompts 
     
 class DirectGroundedInstruction(DirectTemplateInstruction, InstructionSamplingMixin):
-    def __init__(self, database: Optional[pd.DataFrame] = None, n_instructions: Optional[int] = 3):
+    def __init__(self, database: Optional[pd.DataFrame] = None, n_instructions: Optional[int] = 3, seed: Optional[int] = 42):
         super().__init__(database)
         self.n_instructions = n_instructions
+        self.seed = seed
 
     def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None, no_explain: Optional[bool] = False, disambig: Optional[bool] = False):
         prompt = super().sample_prompt(deltas, targets, no_explain=no_explain, disambig=disambig) # direct prompt
-        final_prompts = self.add_instructions_to_prompt(prompt, self.n_instructions)
+        np.random.seed(self.seed)
+        final_prompts = self.add_instructions_to_prompt(prompt, deltas, self.n_instructions)
         return final_prompts
     
 if __name__ == '__main__':
     psr = ArgumentParser()
     psr.add_argument("--probe", type=str, help="Probe (CSV) for testing instruction generator.")
+    psr.add_argument("--instruction-path", type=str, default="./data/cot/llama3.1_8b_insts_extracted_cot.pkl")
     psr.add_argument("--prompt-strategy", type=str, default="direct", help="Instruction generator to test.")
+    psr.add_argument("--seed", type=int)
+    psr.add_argument("--no-explain", action="store_true")
+    psr.add_argument("--disambig", action="store_true")
     args = psr.parse_args()
 
-    inst_gen = get_instruction_generator(args.prompt_strategy) # TODO: figure out how to pass some dummy default kwargs for applicable generators
-    probe = pd.read_csv(args.probe, index_col=0, nrows=1)
+    with open(args.instruction_path, "rb") as f:
+        instructions = pickle.load(f)
+
+    inst_gen = get_instruction_generator(args.prompt_strategy, database=instructions, prompter_kwargs=dict(n_instructions=3)) # TODO: figure out how to pass some dummy default kwargs for applicable generators
+    probe = pd.read_csv(args.probe, index_col=0).sample(n=1, random_state=args.seed)
     deltas = probe.filter(like="delta_", axis=1)
     targets = probe.filter(like="targets_", axis=1)
-    test_prompt = inst_gen.sample_prompt(deltas, targets)
+    test_prompt = inst_gen.sample_prompt(deltas, targets, disambig=args.disambig, no_explain=args.no_explain)
     
     print("Steerability probe:", args.probe)
     print("Prompting strategy:", args.prompt_strategy)
     print("=" * 40)
     print("Source text info:")
     print(probe.iloc[0])
+    print()
+    print("Source text preview:")
+    print(probe.iloc[0]["text"][:1000])
     print()
     print("Prompt (generated):")
     print(*test_prompt)

@@ -26,8 +26,25 @@ class SteerabilityProbeConfig:
     )
 
     probe_sampling_seed: int = field(
-        default=42, 
+        default=137, 
         metadata={"help": "Random seed for subsampling steerability probe for training data preparation."}
+    )
+
+    test_source_sampling_seed: int = field(
+        default=137,
+        metadata={"help": "Random seed for selecting test source texts."}
+    )
+    test_inst_sampling_seed: int = field(
+        default=137,
+        metadata={"help": "Random seed for selecting test instructions."}
+    )
+    train_inst_sampling_seed: int = field(
+        default=137,
+        metadata={"help": "Random seed for selecting train source texts."}
+    )
+    train_source_sampling_seed: int = field(
+        default=137,
+        metadata={"help": "Random seed for selecting train instructions."}
     )
 
     source_text_id_col: str = field(

@@ -18,10 +18,9 @@ from steerability.utils.pairwise_goal_validation import (
     maybe_truncate,
     VLLM_API_CONFIG,
 )
+from steerability.utils.result_utils import extract_oracle_best
 
 from typing import Optional, Union
-
-
 
 @beartype
 def create_problem_set(
@@ -115,7 +114,7 @@ def interactive_review(
 
 
     # Filter rows
-    no_rows = df[df['answer'] == 'No']
+    no_rows = df[df['answer'] != 'Yes'] # TODO: re-run and check
     yes_rows = df[df['answer'] == 'Yes'].sample(
         n=min(spot_check_size, len(df[df['answer'] == 'Yes'])),
         random_state=spot_check_seed
@@ -132,7 +131,7 @@ def interactive_review(
         table.add_column("Rewrite", overflow="fold")
         table.add_column("Answer", style="bold magenta")
         table.add_column("Reasoning", overflow="fold", style="bold cyan")
-        table.add_row(row["text"], row["llm_response"], row["answer"], row["rationale"])
+        table.add_row(row["text"], str(row["llm_response"]), row["answer"], row["rationale"])
         console.print(table)
         while True:
             user_input = input(">>> Approve reasoning? (yes/no): ").strip().capitalize()
@@ -180,6 +179,7 @@ if __name__ == '__main__':
     psr.add_argument("--source-goal-prefix", type=str, default="source_")
     psr.add_argument("--response-goal-prefix", type=str, default="output_")
     psr.add_argument("--vllm-port", default=16384, type=int)
+    psr.add_argument("--best-only", action="store_true")
     psr.add_argument("--no-sample", action="store_true")
     psr.add_argument("--spot-check-size", default=16, type=int)
     psr.add_argument("--name", type=str, required=True)
@@ -193,6 +193,11 @@ if __name__ == '__main__':
         prompt_template = StringTemplate(f.read().strip())
 
     probe = pd.read_csv(args.probe, index_col=0)
+    if args.best_only:
+        orig_size = len(probe)
+        print("Best-of-N file flag detected. Extracting best response for each goal.")
+        probe = extract_oracle_best(probe)
+        print(f"After filtering: N = {orig_size} -> {len(probe)}")
 
     pset = create_problem_set(
         probe,
@@ -202,6 +207,7 @@ if __name__ == '__main__':
         args.seed,
         source_goal_prefix=args.source_goal_prefix,
         response_goal_prefix=args.response_goal_prefix,
+        port=args.vllm_port,
     )
     chat_instance = initialize_chat_instance(
         args.vllm_port,

@@ -1,8 +1,14 @@
-probe: "./data/steerbench_v2.csv"
+probe: "./data/steerbench_v2.1.csv"
 prompt_strategy: "direct"
 llm_settings:
     llm_name: "gpt-4-turbo-2024-04-09"
     chat_type: "openai"
     cache_file: "gpt4_oai.tsv"
-experiment_name: "steerbench_v2_gpt4_turbo_2024_04_09"
+    other_kwargs:
+        max_simul_calls: 8
+        timeout: 3600        
+        max_tokens: 4096 # same as main probe
+experiment_name: "v2/steerbench_v2.1_gpt4_turbo_2024_04_09"
 seed: 42
+inst_addons:
+  disambig: True

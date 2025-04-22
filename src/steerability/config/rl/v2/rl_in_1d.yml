@@ -2,8 +2,8 @@
 # GRPOConfig/TrainingArguments arguments
 # See https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments for full list
 # ==============================
-output_dir: "/data2/ctrenton/llm/steerability_tuning_v2_flesch_kincaid_128x8_capped/"
-run_name: "steerability_flesch_kincaid_128x8_capped"
+output_dir: "/data2/ctrenton/llm/steerability_tuning_v2_flesch_kincaid_128x8_bs4_lopo/"
+run_name: "steerability_flesch_kincaid_128x8_bs4_lopo"
 remove_unused_columns: False
 # ==============================
 # Default generation args
@@ -18,7 +18,7 @@ frequency_penalty: 0.1 # a little more heavy handed than I'd like, but perhaps n
 # Model/training args
 # ==============================
 attn_implementation: "flash_attention_2"
-learning_rate: 5.0e-7 # seems standard to increase
+learning_rate: 2.5e-7 # seems standard to increase
 optim: "adamw_torch"
 lr_scheduler_type: "constant_with_warmup"
 adam_beta1: 0.9
@@ -28,7 +28,7 @@ warmup_ratio: 0.2
 logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
 per_device_train_batch_size: 64 # num_generations before rejection sampling * old batch size
 per_device_eval_batch_size: 1
-gradient_accumulation_steps: 2
+gradient_accumulation_steps: 4
 rejection_sample_size: 16
 rejection_sample_type: "sum" 
 max_grad_norm: 1.0
@@ -61,8 +61,8 @@ torch_empty_cache_steps: 1
 use_sample_weights: True
 use_cut_cross_entropy: True # fixes OOM with 16 generations + approx. 1e-4 diff from PyTorch (forward)
 tau: 0.5
-lambda_tau: 0.1
-lopo_epsilon: 0.4
+lambda_tau: 1.0
+lopo_epsilon: 0.0
 # checkpointing, saving, and logging
 # ==============================
 # Gradient Checkpointing
@@ -115,4 +115,4 @@ eval_rewards:
     - "rd_error"
 normalize_ortho: False # verify correctness
 normalize_miscal: False  # verify correctness
-good_enough_threshold: 0.15
+#good_enough_threshold: 0.1

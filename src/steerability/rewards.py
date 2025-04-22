@@ -20,6 +20,7 @@ async def send_request(
         goals: Optional[List[str]] = None,
         port: Optional[int] = 12121,
         max_retries: Optional[int] = 10,
+        normalize: Optional[bool] = True,
     ):
     """
         Yes, in theory, there are definitely easier ways than "rewards as a service," but if we want the rewards
@@ -28,7 +29,7 @@ async def send_request(
         having to worry about pickle-ability
     """
     inference_url = f"http://127.0.0.1:{port}/goalspace" # why stop here? We can even throw vLLM in here someday
-    payload = {"texts": texts}
+    payload = {"texts": texts, "normalize": normalize}
     if goals is not None:
         payload["goals"] = goals
     retries = 0

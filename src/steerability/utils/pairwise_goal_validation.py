@@ -29,6 +29,8 @@ VLLM_API_CONFIG = os.path.join(os.path.expanduser("~"), "api/vllm_oai.config")
 MAX_RESPONSE_LENGTH_FOR_JUDGE = 4096 # catch degenerate texts
 
 def maybe_truncate(s: str, tokenizer: AutoTokenizer) -> str:
+    if not isinstance(s, str) and np.isnan(s):
+        return "<nan>" # dummy null response
     input_ids = tokenizer.encode(s, truncation=True, max_length=MAX_RESPONSE_LENGTH_FOR_JUDGE)
     if len(input_ids) == MAX_RESPONSE_LENGTH_FOR_JUDGE:
         print(f"Truncated overlong response:", s[:1000] + "...")

@@ -1,29 +1,36 @@
 from argparse import ArgumentParser
 import os
 from pathlib import Path
+import pickle
 import random
 
 import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML
 
-from instruction_generator import get_instruction_generator
-from llm_interactor import LLMInteractor
-from plotting import create_steerability_report
+from steerability.instruction_generator import get_instruction_generator
+from steerability.llm_interactor import LLMInteractor
 
 yaml = YAML(typ='safe')
 
 RESULTS_DIR = Path("results/")
+
+def load_database(path: str):
+    if path is not None:
+        with open(path, "rb") as f:
+            db = pickle.load(f)
+        return db
 
 
 def get_args():
     psr = ArgumentParser()
     psr.add_argument("--config", required=True, type=str, help="YAML configuration file.")
     psr.add_argument("--api-config", required=True, type=str, help="File storing API key.")
-    psr.add_argument("--inst-database", type=str, help="Auxiliary data file for advanced instructions (e.g., CoT grounded in specific examples)")
+    #psr.add_argument("--inst-database", type=str, help="Auxiliary data file for advanced instructions (e.g., CoT grounded in specific examples)")
     psr.add_argument("--seed-data", type=str, help="Seed data used for steerability probe for normalization.", default="./data/v2_seed_data_goalspace_mapped.csv")
     psr.add_argument("--nrows", type=int, help="Number of rows of the steerability probe to read. Useful for debugging.")
     psr.add_argument("--overwrite", action="store_true")
+    psr.add_argument("--async-mode", action="store_true")
     return psr.parse_args()
 
 
@@ -47,7 +54,7 @@ if __name__ == '__main__':
     print(f"Using prompt strategy `{prompt_strategy}`")
     instruction_generator = get_instruction_generator(
         prompt_strategy,
-        database=args.inst_database,
+        database=load_database(cfg.get("instruction_path", None)), # extracted via LLM from CoT traces
         prompter_kwargs=cfg.get("prompter_kwargs", {})
     )
 
@@ -58,6 +65,7 @@ if __name__ == '__main__':
         llm_cfg["chat_type"],
         llm_cfg["cache_file"],
         args.api_config,
+        async_mode=args.async_mode,
         **llm_cfg.get("other_kwargs", {}),
     )
     delta_goals = probe.filter(like='delta_', axis=1) # This is heavily reliant on how the probe is implemented at an earlier stage -- target for further refactor
@@ -83,10 +91,3 @@ if __name__ == '__main__':
         os.mkdir(result_dir)
     outputs.to_csv(result_path)
     print("Steerability data saved to", result_path)
-
-    # and now we make the plots
-    # create_steerability_report(
-    #   outputs,
-    #    ["histogram", "goal_by_goal", "side_effect"],
-    #) 
-    # TODO: new eval goes here + new figure outputs

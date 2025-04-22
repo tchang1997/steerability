@@ -1,7 +1,10 @@
+from collections import defaultdict
 import json
 import os
 import re
 
+from aiohttp import ClientSession
+import asyncio
 from beartype import beartype
 import numpy as np
 import pandas as pd
@@ -9,11 +12,13 @@ from sammo.base import Template
 from sammo.runners import OpenAIChat, MockedRunner
 from sammo.components import Output, GenerateText
 from sammo.throttler import AtMost
+from tqdm.auto import tqdm
 
-from custom_runners import DeepInfraChat, VLLMOpenAIChat
-from goals import Goalspace
-from instruction_generator import InstructionGenerator
-from utils.model_output_cleaner import clean_model_output
+from steerability.custom_runners import DeepInfraChat, VLLMOpenAIChat
+from steerability.goals import Goalspace
+from steerability.instruction_generator import InstructionGenerator
+from steerability.rewards import send_request
+from steerability.utils.model_output_cleaner import clean_model_output
 
 from beartype.typing import Dict
 from typing import Optional, Union
@@ -62,6 +67,9 @@ class LLMInteractor(object):
         inst_context_delimiter: Optional[str] = "\n\n",
         text_gen_kwargs: Optional[Dict] = {},
         port: Optional[int] = None,
+        async_mode: Optional[bool] = False,
+        goalspace_port: Optional[int] = 16641, # 129^2, since 16384 is taken
+        max_simul_goalspace_reqs: Optional[int] = 24,
     ):
         self.llm_name = llm_name
         self.chat_type = chat_type
@@ -70,6 +78,10 @@ class LLMInteractor(object):
         self.inst_context_delimiter = inst_context_delimiter
         self.num_generations = text_gen_kwargs.get("num_generations", 1)
         self.text_gen_kwargs = text_gen_kwargs
+
+        self.async_mode = async_mode
+        self.goalspace_port = goalspace_port
+        self.max_simul_goalspace_reqs = max_simul_goalspace_reqs
 
         if os.path.isfile(api_config):
             with open(api_config, "r") as f:
@@ -142,7 +154,7 @@ class LLMInteractor(object):
         outputs = Output(GenerateText(Template("{{input}}"), **self.text_gen_kwargs)).run(self.chat_instance, prompts.tolist())
         final_output = []
         raw_output = []
-        for raw_resp in outputs.outputs.llm_responses: 
+        for i, raw_resp in enumerate(outputs.outputs.llm_responses): 
             try:
                 iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
                 for resp in iter_obj: # do we need [0]?
@@ -151,8 +163,13 @@ class LLMInteractor(object):
                     raw_output.append(resp)
                     final_output.append(clean_resp)
             except Exception as e:
+                if outputs.outputs[i].value == "KeyError('choices')":
+                    print("Forcibly returned exception detected, causing a KeyError when post-processing. This usually happens due to a cached timeout error or content policy violation. Proceeding with null string.")
+                    raw_output.append("Error: content policy violation detected!") # HACK 
+                    final_output.append("Error: content policy violation detected!")
+                    continue
                 import traceback
-                print("Exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
+                print("Unhandled exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
                 print("Full traceback:")
                 print(traceback.format_exc())
                 raise e
@@ -163,6 +180,50 @@ class LLMInteractor(object):
             "llm_response": final_output,
         })
 
+    async def safe_request(self, i, session, text, goals, port):
+        try:
+            if not isinstance(text, list):
+                text = [text]
+            result = await send_request(session, text, goals=goals, port=port, normalize=False) # raw outputs at this stage only!
+            return i, result
+        except Exception as e:
+            print("An exception was raised when sending request", i)
+            return i, e 
+
+    @beartype 
+    async def get_goalspace_mappings(self, probe: pd.DataFrame, responses: list[str], max_for_debug: Optional[int] = None, batch_size: Optional[int] = 32):
+        goalspace = Goalspace.create_default_goalspace_from_probe(probe)
+        goals = goalspace.get_goal_names(snake_case=True)
+        if max_for_debug is not None:
+            responses = responses[:max_for_debug]
+
+        # chunk into batches
+        resps_batched = [responses[i:i + batch_size] for i in range(0, len(responses), batch_size)]
+
+        if self.async_mode:
+            results = [None] * len(resps_batched)
+            sem = asyncio.Semaphore(self.max_simul_goalspace_reqs)  # define this in __init__ or pass in
+
+            async def limited_safe_request(i, session, text):
+                async with sem:
+                    return await self.safe_request(i, session, text, goals=goals, port=self.goalspace_port)
+
+            async with ClientSession() as session:
+                tasks = [limited_safe_request(i, session, text) for i, text in enumerate(resps_batched)]
+
+                for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+                    i, response = await fut
+                    results[i] = response # dict[str -> list[float]]
+
+            # handle lists of lists in future
+            combined = defaultdict(list)
+            for d in results:
+                for k, v in d.items(): # str -> list[float]
+                    combined[k].extend(v)
+            mappings = pd.DataFrame(combined)
+        else:
+            mappings = goalspace(responses, return_pandas=True)
+        return mappings
 
     @beartype
     def generate_steerability_data(
@@ -171,15 +232,14 @@ class LLMInteractor(object):
         prompts: Union[list, pd.Series],
         seed_data: pd.DataFrame, 
         verbose: Optional[bool] = False,
+        max_for_debug: Optional[int] = None,
     ):
         if not isinstance(prompts, pd.Series):
             prompts = pd.Series(prompts, name="instruction")
         raw_inputs = prompts.str.cat(probe["text"], sep=self.inst_context_delimiter)
         llm_outputs = self.call_llm(raw_inputs, verbose=verbose)
 
-        # for a speedup, can we attach this to a server?
-        goalspace = Goalspace.create_default_goalspace_from_probe(probe)
-        goalspace_out = goalspace(llm_outputs["llm_response"].tolist(), return_pandas=True).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
+        goalspace_out = asyncio.run(self.get_goalspace_mappings(probe, llm_outputs["llm_response"].tolist(), max_for_debug=max_for_debug)).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
         out_normed = renormalize_goalspace(seed_data, goalspace_out)
 
         if self.num_generations == 1:

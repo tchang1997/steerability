@@ -480,6 +480,8 @@ class TextualDiversity(Goal):
         if len(word_tokenize(text)) < 50:
             print("Less than 50 words in evaluation text. This may lead to an inaccurate diversity measure.")
         cleaned = lats.Normalize(text, lats.ld_params_en)
+        if len(cleaned.toks) == 0 or len(set(cleaned.toks)) == 0: # this will cause some calculation issues, so we assume that such texts are trivially non-diverse
+            return 0.
         ldvals = ld.lexdiv(cleaned.toks)
         return ldvals.mtld 
 
@@ -517,9 +519,9 @@ class Formality(Goal):
         if cls._spacy_model is None:
             cls._spacy_model = spacy.load("en_core_web_sm")
         return cls._spacy_model 
-
+    
     @beartype
-    def __call__(self, text: str):
+    def get_pos_freqs(self, text: str):
         spacy_model = self.get_spacy_model()
         pos_counts = {
             "NOUN": 0,
@@ -542,8 +544,12 @@ class Formality(Goal):
                     pos_counts[pos] += 1
                 elif pos == "DET" and word in {"a", "an", "the"}:
                     pos_counts["ARTICLE"] += 1
-        freqs = {k: v / total * 100 for k, v in pos_counts.items()}
+        freqs = {k: 0 if total == 0 else v / total * 100 for k, v in pos_counts.items()}
+        return freqs
 
+    @beartype
+    def __call__(self, text: str):
+        freqs = self.get_pos_freqs(text)
         # Apply Heylighen & Dewaele formula (pg. 309, VARIATION IN THE CONTEXTUALITY OF LANGUAGE)
         diectic_coeff = freqs["NOUN"] + freqs["ADJ"] + freqs["ADP"] + freqs["ARTICLE"]
         non_diectic_coeff = freqs["PRON"] + freqs["VERB"] + freqs["ADV"] + freqs["INTJ"]

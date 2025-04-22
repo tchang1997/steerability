@@ -1,0 +1,16 @@
+probe: "./data/steerbench_v2.1.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "o1-mini-2024-09-12"
+    chat_type: "openai"
+    cache_file: "o1_oai.tsv"
+    other_kwargs:
+        max_simul_calls: 8
+        timeout: 3600        
+        max_tokens: 4096 # same as main probe
+        text_gen_kwargs:
+          randomness: 1.0 # ONLY supported value
+experiment_name: "v2/steerbench_v2.1_o1_mini_2024_09_12" 
+seed: 42
+inst_addons:
+  disambig: True

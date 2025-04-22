@@ -1,0 +1,25 @@
+You are an impartial judge comparing differences between two versions of a particular text.
+
+**Version A:**
+$version_a
+
+**Version B:**
+$version_b
+
+Please evaluate the two versions by answering the following questions.
+
+**Questions:**
+* Which version is harder to read, as judged by the Flesch-Kincaid grade level? 
+* Which version uses more diverse language, as judged by the measure of textual lexical diversity?
+* Which version is longer, as judged by the length of the text?
+* Which version is more formal, as judged by the Heylighen-Dewaele F-score?
+
+For all questions, you may answer "A", "B", or "Tie," and provide a brief rationale (1-2 sentences). Return only a valid JSON object in the following format, with no additional commentary.
+```
+    {
+        "higher_reading_difficulty": {"answer": [A|B|Tie], "rationale": [your reasoning]},
+        "higher_textual_diversity": {"answer": [A|B|Tie], "rationale": [your reasoning]},
+        "higher_text_length": {"answer": [A|B|Tie], "rationale": [your reasoning]},
+        "higher_formality": {"answer": [A|B|Tie], "rationale": [your reasoning]},
+    }
+```

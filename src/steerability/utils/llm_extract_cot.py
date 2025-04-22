@@ -1,54 +1,80 @@
 from argparse import ArgumentParser
-import json
-import os
-import pathlib
+import pickle
+import re
+from string import Template as StringTemplate
 
 import pandas as pd
-
 from sammo.base import Template
-from sammo.components import GenerateText, Output
-from sammo.data import DataTable
-from sammo.extractors import LambdaExtractor
-from sammo.runners import AzureChat 
-from sammo.throttler import AtMost
+from sammo.components import Output, GenerateText
+from tqdm.auto import tqdm
 
-PROMPT = "A group of three expert copy-editors were asked to rewrite some text following some instructions. Before answering, they were asked to explain their intended edits. Can you summarize everyone's proposed edits as a numbered list? Respond with only the numbered list and do not explain your answer."
-AZURE_API_FILE = pathlib.Path().cwd().parent / "api" / "azure.openai" # "trapi.config"
-AZURE_API_CONFIG = ""
-if AZURE_API_FILE.exists():
-    AZURE_API_CONFIG = AZURE_API_FILE
+from steerability.utils.pairwise_goal_validation import initialize_chat_instance, VLLM_API_CONFIG
+from steerability.utils.model_output_cleaner import clean_model_output
 
-MODEL_NAME = "gpt-4-turbo"
-CACHE_FILE = "llm_cot_extractor.tsv"
-TIMEOUT = 120
+tqdm.pandas()
+
+def get_cot_block(text):
+    pattern = r"## Edits(.*?)## Rewritten text"
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        content = match.group(1).strip()
+    else:
+        content = None
+    return content
+
+def call_llm(chat_instance, prompts):
+    outputs = Output(GenerateText(Template("{{input}}"), randomness=0.)).run(chat_instance, prompts.tolist())
+    final_output = []
+    raw_output = []
+    for raw_resp in outputs.outputs.llm_responses: 
+        try:
+            iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
+            for resp in iter_obj: # do we need [0]?
+                clean_resp = clean_model_output(chat_instance._model_id, resp) # by default, only return one response
+                raw_output.append(resp)
+                final_output.append(clean_resp)
+        except Exception as e:
+            import traceback
+            print("Exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
+            print("Full traceback:")
+            print(traceback.format_exc())
+            raise e
+    return final_output, raw_output
 
 if __name__ == '__main__':
     psr = ArgumentParser()
-    psr.add_argument("--instruction-file", type=str, default="./data/llm_cot_outputs_raw.csv")
-    psr.add_argument("--cols", nargs="+", type=str, default=["gpt4", "mixtral8x7b", "llama70b"])
+    psr.add_argument("--instruction-file", type=str, nargs="+", required=True)
+    psr.add_argument("--vllm-port", default=16384, type=int)
+    psr.add_argument("--prompt-file", type=str, default="./config/extract_cot_instructions.prompt")
+    psr.add_argument("--name", type=str, required=True)
+    psr.add_argument("--nrows", type=int)
     args = psr.parse_args()
 
-    instructions = pd.read_csv(args.instruction_file, index_col=0)
+    with open(args.prompt_file, "r") as f:
+        prompt_template = StringTemplate(f.read().strip())
 
-    with open(AZURE_API_CONFIG, "r") as f:
-        api_config = json.load(f)
-    api_config["deployment_id"] = MODEL_NAME
-    chat_instance = AzureChat( 
-        model_id=MODEL_NAME,
-        api_config=api_config,
-        cache=os.path.join("./cache", CACHE_FILE),
-        timeout=TIMEOUT,
-        rate_limit=AtMost(3, "running"),
-    )   
-    
-    dt = DataTable.from_pandas(instructions, output_fields=[], input_fields=["gpt4", "mixtral8x7b", "llama70b"], constants={"instructions": PROMPT})
-    labeling_prompt = GenerateText(Template("{{constants.instructions}}\n\nStudent 1:{{input.gpt4}}\n\nStudent 2: {{input.mixtral8x7b}}\n\nStudent 3: {{input.llama70b}}"))
-    final_out = Output(LambdaExtractor(labeling_prompt, 'lambda x: re.findall(r"^\d+\.\s*(.*)", x, re.MULTILINE)')).run(chat_instance, dt)
-    list_of_instructions = final_out.outputs.values
+    cots = pd.concat([pd.read_csv(f, index_col=0, nrows=args.nrows) for f in args.instruction_file], ignore_index=True)
+    inst_block_raw = cots["raw_response"].progress_apply(get_cot_block)
+    cots["prompts"] = [prompt_template.substitute(edits=inst_block) for inst_block in inst_block_raw]
+    chat_instance = initialize_chat_instance(
+        args.vllm_port,
+        api_config=VLLM_API_CONFIG,
+        cache_suffix="_cot_extractor.tsv"
+    )
+    clean_results, raw_results = call_llm(chat_instance, cots["prompts"])
 
-    deltas = instructions[[c for c in instructions.columns if c.startswith("delta_")]].values
-    goal_dict = {
-        i: instr_list for i, instr_list in enumerate(list_of_instructions)
+    pattern = r"\d+\s*\.\s*(.+)"
+    cots["inst_lists_extracted"] = clean_results
+    cots["edit_instruction"] = cots["inst_lists_extracted"].apply(lambda res: re.findall(pattern, res))
+    index_cols = cots.filter(regex="^delta_", axis=1).columns.tolist()
+    final_inst_df = cots[index_cols + ["edit_instruction"]].set_index(index_cols)["edit_instruction"]
+    cot_dict = {
+        tuple(f"{name}_{val}" for name, val in zip(final_inst_df.index.names, idx)): inst
+        for idx, inst in final_inst_df.items()
     }
-    with open("data/grounded_instructions.json", "w") as f:
-        json.dump(goal_dict, f)
+
+    path = f"./data/cot/{args.name}_extracted_cot.pkl"
+    with open(path, "wb") as f:
+        pickle.dump(cot_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+    print("Saved CoT to", path)
+

@@ -137,7 +137,7 @@ def create_train_val_split(probe: pd.DataFrame, probe_config: SteerabilityProbeC
             .drop_duplicates() \
             .sample(
                 n=probe_config.n_source_texts,
-                random_state=probe_config.probe_sampling_seed,
+                random_state=probe_config.train_source_sampling_seed,
                 replace=False
             ).tolist() # sampling w/o replacement may induce some bias. No sample-weighting; weights already precalculated.     
         print("Train texts:", train_source_texts)
@@ -146,7 +146,7 @@ def create_train_val_split(probe: pd.DataFrame, probe_config: SteerabilityProbeC
         train_data = train_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
             lambda x: x.sample(
                 n=min(len(x), probe_config.instructions_per_text),
-                random_state=probe_config.probe_sampling_seed,
+                random_state=probe_config.train_inst_sampling_seed,
                 replace=False,
             )
         ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
@@ -160,7 +160,7 @@ def create_train_val_split(probe: pd.DataFrame, probe_config: SteerabilityProbeC
             .drop_duplicates() \
             .sample(
                 n=probe_config.num_test_prompts_for_eval // probe_config.insts_per_probe_source_text, 
-                random_state=probe_config.probe_sampling_seed,
+                random_state=probe_config.test_source_sampling_seed,
                 replace=False,
             ).tolist()
         print("Test texts:", test_source_texts)
@@ -168,7 +168,7 @@ def create_train_val_split(probe: pd.DataFrame, probe_config: SteerabilityProbeC
         test_data = test_subset.groupby(probe_config.source_text_id_col, group_keys=False).apply(
             lambda x: x.sample(
                 n=min(len(x), probe_config.insts_per_probe_source_text),
-                random_state=probe_config.probe_sampling_seed,
+                random_state=probe_config.test_inst_sampling_seed,
                 replace=False,
             )
         ).reset_index(drop=True) # this'll sample the same instruction indices per source text, which shouldn't be the same as the same instructions 
@@ -320,6 +320,8 @@ if __name__ == '__main__':
             reward_config,
         ) = parser.parse_yaml_file(base_args.config)
 
+    if os.path.exists(training_config.output_dir) and not training_config.overwrite_output_dir:
+        raise ValueError(f"Output directory '{training_config.output_dir}' already exists. Set `overwrite_output_dir=True` to overwrite it.")
 
     print("Preparing data...")
     dataset, eval_dataset = prepare_steerability_probe(
