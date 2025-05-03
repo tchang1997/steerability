@@ -5,6 +5,8 @@ import math
 import re
 
 from aiohttp import ClientSession, ServerDisconnectedError
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.tokenize import word_tokenize
 import numpy as np
 
 from steerability.utils.model_output_cleaner import clean_model_output, is_chat_completion_format
@@ -53,13 +55,14 @@ async def map_to_goalspace(
         goals: Optional[List[str]] = None,
         port: Optional[int] = 12121,
         n_workers: Optional[int] = 16, # this is more how many chunks you want to split your workload into -- the request will just sit in a queue anyway
+        normalize: Optional[bool] = True,
     ):
     if isinstance(texts, str):
         texts = [texts]
     batch_size = math.ceil(len(texts) / n_workers)
     text_batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
     async with ClientSession() as session:
-        tasks = [send_request(session, batch, goals=goals, port=port) for batch in text_batches]
+        tasks = [send_request(session, batch, goals=goals, port=port, normalize=normalize) for batch in text_batches]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
     merged_responses = defaultdict(list)
     for response in responses:
@@ -207,6 +210,11 @@ def english_only_reward_func(completions, **kwargs):
     if is_chat_completion_format(completions):
         completions = [completion[0]["content"] for completion in completions]
     return [0.0 if CHINESE_PATTERN.search(content) else 1.0 for content in completions]
+
+def no_rewrite_reward_func(completions, **kwargs):
+    if is_chat_completion_format(completions):
+        completions = [completion[0]["content"] for completion in completions] 
+    source_texts = kwargs["text"] # TO FIX: note that this will break if source_text_col in probe_config is overridden
 
 REGISTRY = {
     "steerability_error": steerability_reward_wrapper,

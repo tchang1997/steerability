@@ -15,6 +15,7 @@ dependencies = [
     "convokit==3.0.0",
     "datasets==3.2.0",
     "detoxify==0.5.2",
+    "empath==0.89",
     "matplotlib==3.10.0",
     "nltk==3.9.1",
     "numpy==1.26.4",
@@ -43,5 +44,3 @@ dependencies = {file = ["requirements.txt"]}
 [tool.setuptools.package-dir]
 "" = "src"
 
-[tool.setuptools.packages.find]
-where = ["src"]

@@ -19,6 +19,9 @@ def clean_deepseek_thinks(s: str, think_tag: Optional[str] = "think") -> str:
 _cleaner_fns = {
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": clean_deepseek_thinks,
     "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": clean_deepseek_thinks,
+    "Qwen/Qwen3-4B": clean_deepseek_thinks, # they use the same thinking template....!?
+    "Qwen/Qwen3-32B": clean_deepseek_thinks,
+    "Qwen/Qwen3-30B-A3B": clean_deepseek_thinks,
 }
 
 def is_chat_completion_format(completions: List[Any]):

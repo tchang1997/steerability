@@ -15,6 +15,7 @@ import asyncio
 import os
 
 from beartype import beartype
+from nltk import sent_tokenize
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -23,6 +24,7 @@ from ruamel.yaml import YAML
 from tqdm.auto import tqdm
 
 from steerability.goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
+from steerability.llm_interactor import renormalize_goalspace
 from steerability.rewards import map_to_goalspace
 
 from typing import Optional, Union
@@ -78,8 +80,12 @@ def get_subset(
     n_source_texts: int, 
     n_goals_per_text: int,
     seed: Optional[int] = 42,
+    weighted: Optional[bool] = True,
 ):
-    text_subset = goalspace_df.sample(n=n_source_texts, weights=goalspace_df["sampling_weights"], replace=False, random_state=seed) # yes, sampling w/o replacement will introduce a slight amount of bias, but this will reduce issues where we repeatedly sample a super "rare" text
+    if weighted:
+        text_subset = goalspace_df.sample(n=n_source_texts, weights=goalspace_df["sampling_weights"], replace=False, random_state=seed) # yes, sampling w/o replacement will introduce a slight amount of bias, but this will reduce issues where we repeatedly sample a super "rare" text
+    else:
+        text_subset = goalspace_df.sample(n=n_source_texts, replace=False, random_state=seed)
     text_subset = text_subset.loc[text_subset.index.repeat(n_goals_per_text)]
     return text_subset   
 
@@ -133,9 +139,10 @@ def create_final_probe(
         delta_max: Optional[float] = 0.7,
         deadzone: Optional[float] = 0.1,
         max_active_goals: Optional[int] = 3,
-        seed: Optional[int] = 42
+        seed: Optional[int] = 42,
+        weighted: Optional[bool] = True, 
     ) -> pd.DataFrame:
-    text_subset = get_subset(goalspace_df, n_source_texts, n_goals_per_text, seed=seed)
+    text_subset = get_subset(goalspace_df, n_source_texts, n_goals_per_text, seed=seed, weighted=weighted)
     goal_names = ["source_" + name for name in steering_goals.get_goal_names(snake_case=True)]
     source_goals = text_subset[goal_names].values
 
@@ -168,6 +175,10 @@ if __name__ == '__main__':
     psr.add_argument("--max-workers", type=int, default=1)
     psr.add_argument("--uvicorn-port", type=int, default=9999)
     psr.add_argument("--use-async", action="store_true")
+
+    # useful for sentence based stuff
+    psr.add_argument("--sent-tokenize", action="store_true")
+    psr.add_argument("--normalized-data", type=str)
     args = psr.parse_args()
     with open(args.config, "r") as f:
         cfg = yaml.load(f)
@@ -182,6 +193,11 @@ if __name__ == '__main__':
     else:
         goalspace = Goalspace([GoalFactory.get_default(g) for g in args.goals], cache_path=cache_path) # future: make it possible to override and pass kwargs to the downstream classes
 
+    if args.sent_tokenize:
+        df_ = dataset.sample(n=args.nrows, random_state=137).copy()
+        df_["sentences"] = df_["text"].apply(sent_tokenize)
+        dataset = df_[["source", "sentences"]].explode("sentences").rename(columns={"sentences": "text"}).reset_index()
+
     need_concat = False
     goalspace_cols = goalspace.get_goal_names(snake_case=True)
     normalized_cols = ["source_" + c for c in goalspace_cols]
@@ -192,7 +208,7 @@ if __name__ == '__main__':
         need_concat = True
         if args.use_async:
             print(f"Pinging goalspace server at port {args.uvicorn_port}...")
-            goalspace_dict = asyncio.run(map_to_goalspace(dataset[args.text_col].tolist(), port=args.uvicorn_port, n_workers=args.max_workers))
+            goalspace_dict = asyncio.run(map_to_goalspace(dataset[args.text_col].tolist(), port=args.uvicorn_port, n_workers=args.max_workers, normalize=False))
             goalspace_df = pd.DataFrame(goalspace_dict)
         else:
             goalspace_df = goalspace(dataset[args.text_col].tolist(), max_workers=args.max_workers)
@@ -200,7 +216,17 @@ if __name__ == '__main__':
     if set(normalized_cols).issubset(set(dataset.columns)):
         print("Normalized goal-space mappings detected; skipping recalculation.")
     else:
-        goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
+        if args.normalized_data is None:
+            goalspace_df = normalize_goals(goalspace_df, range=95) # middle 95% gets linearly scaled to 0, 1
+        else:
+            print("Normalizing goal-space according to normalization data:", args.normalized_data)
+
+            yaml = YAML(typ="safe")
+            with open(args.normalized_data, "r") as f:
+                normalization = yaml.load(f)
+            for goal in goalspace_df.columns:
+                goal_min, goal_max = normalization[goal]["min"], normalization[goal]["max"]
+                goalspace_df[f"source_{goal}"]  = np.clip((goalspace_df[goal] - goal_min) / (goal_max - goal_min), 0., 1.)
     
     if need_concat: # not {"text", "source"}.issubset(set(goalspace_df.columns)): # if pre-existing probe has "text", "source" -- ok to skip concat
         goalspace_df = pd.concat([dataset, goalspace_df], axis=1)
@@ -229,9 +255,13 @@ if __name__ == '__main__':
         delta_min=probe_settings["delta_min"],
         delta_max=probe_settings["delta_max"],
         deadzone=probe_settings["deadzone"],
+        weighted=probe_settings.get("weighted", True),
     )
-    steerability_probe.to_csv(os.path.join("data", cfg["name"] + ".csv"))
-    print("Saved steerability probe to", cfg["name"] + ".csv")
+    if args.sent_tokenize:
+        steerability_probe.to_csv(os.path.join("data", "_sentence_level_" + cfg["name"] + ".csv"))
+    else:
+        steerability_probe.to_csv(os.path.join("data", cfg["name"] + ".csv"))
+        print("Saved steerability probe to", cfg["name"] + ".csv")
 
     if args.weighting_goals is None:
         replace_stub = "_goalspace_mapped.csv"
@@ -239,6 +269,11 @@ if __name__ == '__main__':
         replace_stub = f"_goalspace_{args.weighting_goals[0]}_{args.weighting_goals[1]}.csv"
     else:
         replace_stub = f"_goalspace_{len(args.weighting_goals)}d.csv"
+
+    if args.sent_tokenize:
+        replace_stub = "_sentence_level" + replace_stub
+ 
     mapping_path = args.seed_data.replace(".csv", replace_stub)
+
     goalspace_df.to_csv(mapping_path)
     print("Saved original goalspace mappings (+/- normalization) to", mapping_path)

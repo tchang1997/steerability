@@ -38,6 +38,7 @@ class VLLMOpenAIChat(VLLMMixIn, OpenAIChat):
         num_generations: int = 1,
         frequency_penalty: float = 0.0,
         min_p: float = 0.0,
+        thinking_hard_switch: Optional[bool] = None, # if unset, will not add key AT ALL to ensure compat with non-thinking models
         json_mode: bool = False,
     ) -> LLMResult:
         messages = []
@@ -60,6 +61,8 @@ class VLLMOpenAIChat(VLLMMixIn, OpenAIChat):
             frequency_penalty=frequency_penalty,
             min_p=min_p,
         )
+        if thinking_hard_switch is not None:
+            request["extra_body"] = {"chat_template_kwargs": {"enable_thinking": thinking_hard_switch}}
         if json_mode is True:
             request["response_format"] = {"type": "json_object"}
         fingerprint = serialize_json({"seed": seed, "generative_model_id": self._equivalence_class, **request})

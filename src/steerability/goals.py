@@ -8,9 +8,17 @@ import json
 import os
 import re
 
-from convokit import PolitenessStrategies
+try:
+    from convokit import PolitenessStrategies
+except ValueError as e:
+    print("Unable to import convokit:", e)
 from detoxify import Detoxify
-from empath import Empath
+
+try:
+    from empath import Empath
+except ImportError:
+    print("Unable to import empath.")
+
 from filelock import FileLock
 from nltk.tokenize import sent_tokenize, word_tokenize
 import numpy as np
@@ -21,7 +29,11 @@ from taaled import ld
 import textstat
 import torch
 from tqdm.auto import tqdm
-from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
+
+try:
+    from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
+except RuntimeError as e:
+    print("Failed to import transformers -- check torch version and torchvision compatibility", e)
 import warnings
 
 from beartype import beartype

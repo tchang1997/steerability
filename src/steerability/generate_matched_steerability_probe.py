@@ -40,6 +40,10 @@ if __name__ == '__main__':
     raw_probe[delta_cols] = deltas
     raw_probe[target_cols] = deltas + source_goals
     name = cfg["name"]
+
+    cols_to_drop = ['instructions', 'prompt', 'model_name']
+    raw_probe = raw_probe.drop(columns=[col for col in cols_to_drop if col in raw_probe.columns])
+
     print(f"Saving new probe ({name})...")
     raw_probe.to_csv(f"./data/{name}.csv")
 

@@ -18,7 +18,7 @@ from steerability.utils.pairwise_goal_validation import (
     maybe_truncate,
     VLLM_API_CONFIG,
 )
-from steerability.utils.result_utils import extract_oracle_best
+from steerability.utils.result_utils import extract_oracle_best, STEERING_GOALS
 
 from typing import Optional, Union
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     if args.best_only:
         orig_size = len(probe)
         print("Best-of-N file flag detected. Extracting best response for each goal.")
-        probe = extract_oracle_best(probe)
+        probe = extract_oracle_best(probe, steering_goals=[g for g in STEERING_GOALS if g in probe.columns])
         print(f"After filtering: N = {orig_size} -> {len(probe)}")
 
     pset = create_problem_set(

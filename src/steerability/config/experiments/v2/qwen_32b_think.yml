@@ -1,0 +1,19 @@
+probe: "./data/steerbench_v2.1.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "Qwen/Qwen3-32B"
+    chat_type: "vllm"
+    cache_file: "vllm-qwen-32b-v2.1.tsv"
+    other_kwargs:
+        port: 16384 
+        max_simul_calls: 128 # 256 concurrent is the max we seem to be able to handle (max_simul_calls * num_generations)
+        timeout: 6000 # WHAT THE
+        text_gen_kwargs: # in sammo-language
+            randomness: 0.0
+            num_generations: 1
+            thinking_hard_switch: True
+        max_tokens: 4096 # same as main probe
+experiment_name: "v2/steerbench_v2.1_qwen32b_big_brain"
+seed: 42
+inst_addons:
+  disambig: True

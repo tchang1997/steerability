@@ -99,14 +99,14 @@ def initialize_chat_instance(
     api_config: str,
     timeout: Optional[int] = 600,
     rate_limit: Optional[int] = 64,
-    max_tokens: Optional[int] = 32000,
+    max_tokens: Optional[int] = 16000,
     cache_suffix: Optional[str] = None,
 ):
     url = f"http://localhost:{port}/v1/models/"
     resp = requests.get(url)
     resp.raise_for_status()
     llm_name = resp.json()["data"][0]["id"]
-    cache_file = llm_name.replace("/", "_") + ("_as_judge.tsv" if cache_suffix is None else cache_suffix)
+    cache_file = llm_name.replace("/", "_") + ("_pairwise_judge.tsv" if cache_suffix is None else cache_suffix)
     print(f"Detected vLLM instance at {url} running {llm_name}. Creating vLLM SAMMO runner with cache {cache_file}.")
     return VLLMOpenAIChat(
         model_id=llm_name,
@@ -116,6 +116,7 @@ def initialize_chat_instance(
         rate_limit=AtMost(rate_limit, "running"),
         max_context_window=max_tokens,
         port=port,
+        use_cached_timeouts=False,
     )
 
 def judge(problem_set: pd.DataFrame, chat_instance: VLLMOpenAIChat) -> pd.DataFrame:
