@@ -1,8 +1,0 @@
-name: "steer_4d_train_3d"
-args:
-    n_source_texts: 512
-    n_goals_per_text: 128
-    max_active_goals: 3
-    delta_min: -0.7
-    delta_max: 0.7
-    deadzone: 0.1

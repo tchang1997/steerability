@@ -1,8 +1,0 @@
-probe: "data/steerbench_converted.csv"
-prompt_strategy: "direct"
-llm_settings:
-    llm_name: "o3-mini-2025-01-31"
-    chat_type: "openai"
-    cache_file: "o3_mini_oai.tsv"
-experiment_name: "o3_mini_direct"
-seed: 42
