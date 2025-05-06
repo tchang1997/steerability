@@ -8,6 +8,7 @@ import asyncio
 from beartype import beartype
 import numpy as np
 import pandas as pd
+from ruamel.yaml import YAML
 from sammo.base import Template
 from sammo.runners import OpenAIChat, MockedRunner
 from sammo.components import Output, GenerateText
@@ -230,7 +231,8 @@ class LLMInteractor(object):
         self,
         probe: pd.DataFrame,
         prompts: Union[list, pd.Series],
-        seed_data: pd.DataFrame, 
+        seed_data: Optional[pd.DataFrame] = None,
+        normalization_cfg: Optional[dict[str, dict[str, float]]] = None, 
         verbose: Optional[bool] = False,
         max_for_debug: Optional[int] = None,
     ):
@@ -238,9 +240,24 @@ class LLMInteractor(object):
             prompts = pd.Series(prompts, name="instruction")
         raw_inputs = prompts.str.cat(probe["text"], sep=self.inst_context_delimiter)
         llm_outputs = self.call_llm(raw_inputs, verbose=verbose)
+        # TODO: implement retry -- given caching, should be safe to just call self.call_llm again
 
         goalspace_out = asyncio.run(self.get_goalspace_mappings(probe, llm_outputs["llm_response"].tolist(), max_for_debug=max_for_debug)).add_prefix("output_raw_") # TODO: now that we just have a goalspace mapping server...perhaps we make the server configurable, and asyncio.run this?
-        out_normed = renormalize_goalspace(seed_data, goalspace_out)
+        
+        if normalization_cfg is not None:
+            with open(normalization_cfg, "r") as f:
+                norm = YAML(typ="safe").load(normalization_cfg)
+            norm_cols = []
+            for goal in norm.keys():
+                if f"output_raw_{goal}" in goalspace_out.columns:
+                    goal_min, goal_max = norm[goal]["min"], norm[goal]["max"]
+                    norm_col = pd.Series(np.clip((goalspace_out[f"output_raw_{goal}"] - goal_min) /  (goal_max - goal_min), 0, 1), name=f"output_{goal}")
+                    norm_cols.append(norm_col)
+            out_normed = pd.concat(norm_cols, axis=1)
+        elif seed_data is not None:
+            out_normed = renormalize_goalspace(seed_data, goalspace_out)
+        else:
+            raise ValueError("Cannot normalize goal-space outputs without seed data for reference, or a normalization config.")
 
         if self.num_generations == 1:
             steerability_data = pd.concat([

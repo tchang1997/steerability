@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import logging
 import uuid
 import os
@@ -9,11 +10,9 @@ from ruamel.yaml import YAML
 
 yaml = YAML(typ="safe")
 
-from steerability.goals import DEFAULT_GOALS, Goalspace
+from steerability.goals import GoalFactory, Goalspace
 
-GOALSPACE = Goalspace(DEFAULT_GOALS, cache_path=f"cache/rl_cache_{os.getpid()}.json") 
-with open("config/seed_data/magic_numbers_v2.yml", "r") as f:
-    NORMALIZATION = yaml.load(f)
+app = FastAPI()
 
 log_file = "goalspace_server.log"
 logging.basicConfig(
@@ -25,13 +24,26 @@ logging.basicConfig(
     ]
 )
 
+DEFAULT_NORM_PATH =  "./config/seed_data/magic_numbers_v2.yml"
+normalization_path = os.getenv("NORMALIZATION_PATH", DEFAULT_NORM_PATH)
+if not os.path.exists(normalization_path):
+    logging.warning("%s does not exist; defaulting to default path at %s", normalization_path, DEFAULT_NORM_PATH)
+    normalization_path = DEFAULT_NORM_PATH
+
+goals = os.getenv("GOAL_DIMENSIONS", "reading_difficulty,formality,textual_diversity,text_length").split(",")
+  
+logging.info("Creating goalspace with goals: %s", goals)
+GOALSPACE = Goalspace([GoalFactory.get_default(goal_dim) for goal_dim in goals], cache_path=f"cache/rl_cache_{os.getpid()}.json") 
+logging.info("Loading normalization info from %s", normalization_path)
+with open(normalization_path, "r") as f:
+    NORMALIZATION = yaml.load(f)
+
+
 def on_receive(endpoint, request_id, request_body):
     logging.info(f'Received request {request_id}: {request_body} - "{endpoint}" HTTP/1.1')
 
 def on_return(endpoint, request_id, response):
     logging.info(f'Sending response {request_id}: {response} - "{endpoint}" HTTP/1.1')
-
-app = FastAPI()
 
 class InferenceRequest(BaseModel):
     texts: list[str]

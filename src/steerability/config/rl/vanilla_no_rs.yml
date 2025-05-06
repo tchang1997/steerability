@@ -29,6 +29,8 @@ logging_steps: 1 # steps = n_examples / batch_size / grad_accumulation_steps
 per_device_train_batch_size: 16 # num_generations before rejection sampling * old batch size
 per_device_eval_batch_size: 1
 gradient_accumulation_steps: 4
+rejection_sample_size: 16 # for no RS ablation, just use top-8 bottom-8 as pseudo-prefs
+rejection_sample_type: "sum"
 max_grad_norm: 1.0
 num_train_epochs: 1
 num_iterations: 1

@@ -29,8 +29,6 @@ def create_problem_set(
     source_col: str,
     response_col: str,
     seed: Optional[int] = 42,
-    source_goal_prefix: Optional[str] = "source_",
-    response_goal_prefix: Optional[str] = "output_",
     port: Optional[int] = 16384,
 ) -> pd.DataFrame:
     #probe_subset = probe.filter(regex=f"^({source_col}$|{response_col}$|{source_goal_prefix}|{response_goal_prefix})", axis=1)
@@ -171,7 +169,6 @@ def interactive_review(
 if __name__ == '__main__':
     psr = ArgumentParser()
     psr.add_argument("--probe", type=str, required=True)
-    psr.add_argument("--pairs-to-sample", type=int, default=250)
     psr.add_argument("--seed", type=int, default=42)
     psr.add_argument("--source-col", type=str, default="text")
     psr.add_argument("--response-col", type=str, default="llm_response")
@@ -180,7 +177,6 @@ if __name__ == '__main__':
     psr.add_argument("--response-goal-prefix", type=str, default="output_")
     psr.add_argument("--vllm-port", default=16384, type=int)
     psr.add_argument("--best-only", action="store_true")
-    psr.add_argument("--no-sample", action="store_true")
     psr.add_argument("--spot-check-size", default=16, type=int)
     psr.add_argument("--name", type=str, required=True)
     args = psr.parse_args()
@@ -205,8 +201,6 @@ if __name__ == '__main__':
         args.source_col,
         args.response_col,
         args.seed,
-        source_goal_prefix=args.source_goal_prefix,
-        response_goal_prefix=args.response_goal_prefix,
         port=args.vllm_port,
     )
     chat_instance = initialize_chat_instance(
@@ -219,6 +213,6 @@ if __name__ == '__main__':
     print("Evaluation results:")
     print(df["answer"].value_counts())
 
-    interactive_review(df, args.spot_check_size)
+    df = interactive_review(df, args.spot_check_size)
     print("Saving results to", path)
     df.to_csv(path)
