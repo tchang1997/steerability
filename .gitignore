@@ -6,14 +6,10 @@ results_from_remote/
 data/*.json
 legacy/
 *.swp
-unsloth_compiled_cache/
-grpo_trainer_lora_model/
 wandb/
 *.csv
 *.pt
 artifacts/
-**/grpo_outputs/
-.problem_text_for*
 **/eval_outputs/
 
 # no figures for now

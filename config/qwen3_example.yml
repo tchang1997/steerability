@@ -1,0 +1,15 @@
+# Basic experiment info
+model_id: "Qwen/Qwen3-0.6B"
+probe: "./data/2025_06_steerbench_64x32.csv"
+# Direct + Negative Prompt
+prompt_strategy: "direct"
+inst_addons:
+  disambig: True
+seed: 42
+max_tokens: 4096
+text_gen_kwargs:
+  randomness: 0.0 # temperature
+  num_generations: 1
+  thinking_hard_switch: True
+# Saving
+save_as: "qwen_0.6b_thinking"

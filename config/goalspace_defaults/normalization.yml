@@ -1,0 +1,13 @@
+reading_difficulty:
+  min: 2.8
+  max: 12.9
+formality:
+  min: 40.37
+  max: 69.121634
+textual_diversity: 
+  min: 44.84394871794872
+  max: 128.54409583333333
+text_length: 
+  min: 78.
+  max: 1509.
+  

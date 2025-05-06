@@ -1,0 +1,10 @@
+model: "meta-llama/Llama-3.1-Instruct-8B"
+prompt_file: "data/prompts/groundedness.prompt"
+spot_check_size: 16
+source_col: "text"
+response_col: "llm_response"
+vllm_args:
+    port: 16385
+    max_model_len: 32000
+    gpu_memory_utilization: 0.8
+    dtype: "auto"
