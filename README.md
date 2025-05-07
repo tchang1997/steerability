@@ -8,24 +8,24 @@ This is the official repo for measuring steerability in LLMs.
 
 We recommend `uv` as the package manager. Start by running
 ```
-uv venv /path/to/your/env/ --python 3.12.8 # supported version
+uv venv /path/to/your/env/ --python 3.12.8 --seed # recommended version
 source /path/to/your/env/bin/activate
+uv pip install -r requirements.txt
+bash initial_setup.sh # makes result directories, downloads auxiliary data
 ```
 
 ## Quickstart
 
-Install required dependencies via `uv pip install -r requirements.txt`, followed by `bash initial_setup.sh` to pre-download some requirement NLTK and Spacy models. 
-
-You can download the CSV of the original steerability probe via:
+First, in a directory of your choice, create a plain text file containing your OpenAI or vLLM API key (you can set the latter yourself):
 ```
-huggingface-cli snapshot download tchang97/steerbench --local-dir ./data/
+{"api-key": "sk-N0taR3a1AP1k3y"}
 ```
 
-Simply run the following:
+Then, simply run the following:
 ```
-CUDA_VISIBLE_DEVICES=... python steer_eval.py --config [YOUR_CONFIG] --api-config [CONFIG]
+CUDA_VISIBLE_DEVICES=... python steer_eval.py --config [YOUR_CONFIG] --api-config [API_CONFIG]
 ```
-where `--api-config` points to a file storing a JSON with your OpenAI API key if needed (e.g., `{"api-key": "sk-..."}`).
+where `--api-config` points to the API key file described above. 
 
 In the provided example at `config/qwen3_example.yml`, we run the steerability probe end-to-end on Qwen3-0.6B for demonstration. This takes ~30 minutes total. **By default, the script requires manual review of rewritten texts flagged by the LLM-as-judge.** 
 
@@ -70,7 +70,9 @@ While there are scripts supporting most of the above features, they have not bee
 
 If you find our work useful, please cite our work:
 ```
-[FORTHCOMING]
+@misc{chang2025steerability,
+    [FORTHCOMING]
+}
 ```
 
 ## Contact
