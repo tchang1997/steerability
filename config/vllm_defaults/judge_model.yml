@@ -1,8 +1,9 @@
-model: "meta-llama/Llama-3.1-Instruct-8B"
+model: "meta-llama/Llama-3.1-8B-Instruct"
 prompt_file: "data/prompts/groundedness.prompt"
 spot_check_size: 16
 source_col: "text"
 response_col: "llm_response"
+seed: 137
 vllm_args:
     port: 16385
     max_model_len: 32000

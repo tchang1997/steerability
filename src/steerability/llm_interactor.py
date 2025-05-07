@@ -1,6 +1,7 @@
 from collections import defaultdict
 import json
 import os
+from pathlib import Path
 import re
 
 from aiohttp import ClientSession
@@ -20,9 +21,12 @@ from steerability.goals import Goalspace
 from steerability.instruction_generator import InstructionGenerator
 from steerability.rewards import send_request
 from steerability.utils.model_output_cleaner import clean_model_output
+from steerability.utils.probe_utils import get_nonnull_targets
 
 from beartype.typing import Dict
 from typing import Optional, Union
+
+DEFAULT_LLM_CALL_TIMEOUT = 3600
 
 @beartype
 def renormalize_goalspace(
@@ -60,8 +64,8 @@ class LLMInteractor(object):
         instruction_generator: InstructionGenerator,
         llm_name: str,
         chat_type: str,
-        cache_file: str,
-        api_config: str,
+        cache_file: str | Path,
+        api_config: str | Path,
         timeout: Optional[int] = 120,
         max_simul_calls: Optional[int] = 3,
         max_tokens: Optional[int] = None,
@@ -108,6 +112,32 @@ class LLMInteractor(object):
             rate_limit=AtMost(max_simul_calls, "running"),
             max_context_window=max_tokens,
             port=port,
+        )
+
+    @classmethod
+    def from_configs(
+        cls,
+        instruction_generator,
+        chat_type: str,
+        api_config: str,
+        cfg: dict,
+        vllm_cfg: dict,
+        uvicorn_cfg: dict,
+    ):
+        return cls(
+            instruction_generator,
+            cfg["model_id"],
+            chat_type,
+            api_config=api_config,
+            cache_file=cfg["model_id"].replace("/", "__") + ".tsv",
+            timeout=DEFAULT_LLM_CALL_TIMEOUT,
+            async_mode=True,
+            port=vllm_cfg["port"],
+            goalspace_port=uvicorn_cfg["port"],
+            max_tokens=cfg["max_tokens"],
+            max_simul_calls=cfg["rate_limit"],
+            max_simul_goalspace_reqs=uvicorn_cfg["workers"],
+            text_gen_kwargs=cfg["text_gen_kwargs"],
         )
 
     @beartype
@@ -225,6 +255,23 @@ class LLMInteractor(object):
         else:
             mappings = goalspace(responses, return_pandas=True)
         return mappings
+    
+    def generate_prompts(
+        self,
+        probe: pd.DataFrame,
+        **kwargs
+    ):
+        delta_goals = probe.filter(like='delta_', axis=1)
+        target_corrected = get_nonnull_targets(probe)
+
+        prompts = self.write_prompts(
+            delta_goals,
+            target_corrected, 
+            **kwargs, # cfg.get("inst_addons", {})
+        ) 
+        print("EXAMPLE PROMPT:")
+        print(f"---\n{prompts[0]}---\n") 
+        return prompts
 
     @beartype
     def generate_steerability_data(
@@ -232,7 +279,7 @@ class LLMInteractor(object):
         probe: pd.DataFrame,
         prompts: Union[list, pd.Series],
         seed_data: Optional[pd.DataFrame] = None,
-        normalization_cfg: Optional[dict[str, dict[str, float]]] = None, 
+        normalization_cfg: Optional[str | Path] = None, 
         verbose: Optional[bool] = False,
         max_for_debug: Optional[int] = None,
     ):

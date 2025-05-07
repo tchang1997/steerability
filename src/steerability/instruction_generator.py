@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from pathlib import Path
 import pickle
 import re
 import warnings
@@ -48,6 +49,13 @@ def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = No
     else:
         raise ValueError(f"{prompt_strategy} is not an implemented instruction generator.")
     return inst_generator
+
+def load_instruction_database(path: str):
+    if Path(path).is_file():
+        with open(path, "rb") as f:
+            database = pickle.load(f)
+            return database
+    return None
 
 class InstructionGenerator(object):
     def __init__(

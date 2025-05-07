@@ -1,0 +1,109 @@
+2025-05-07 01:58:25.216991: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1746597505.230974  216911 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1746597505.235264  216911 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-07 01:58:25.250481: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/utils/_http.py", line 409, in hf_raise_for_status
+    response.raise_for_status()
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/requests/models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://huggingface.co/api/models/meta-llama/Llama-3.1-Instruct-8B/tree/main?recursive=True&expand=False
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 258, in get_config
+    if is_gguf or file_or_path_exists(
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 180, in file_or_path_exists
+    return file_exists(str(model),
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 155, in file_exists
+    file_list = list_repo_files(repo_id,
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 144, in list_repo_files
+    return with_retry(lookup_files, "Error retrieving file list")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 98, in with_retry
+    return func()
+           ^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 134, in lookup_files
+    return hf_list_repo_files(repo_id,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/hf_api.py", line 2996, in list_repo_files
+    for f in self.list_repo_tree(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/hf_api.py", line 3131, in list_repo_tree
+    for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/utils/_pagination.py", line 37, in paginate
+    hf_raise_for_status(r)
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/huggingface_hub/utils/_http.py", line 459, in hf_raise_for_status
+    raise _format(RepositoryNotFoundError, message, response) from e
+huggingface_hub.errors.RepositoryNotFoundError: 404 Client Error. (Request ID: Root=1-681af5fc-31ed929b77d2e06161a911b1;b14704bf-0070-4248-9a06-3335d8bbce6d)
+
+Repository Not Found for url: https://huggingface.co/api/models/meta-llama/Llama-3.1-Instruct-8B/tree/main?recursive=True&expand=False.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data2/ctrenton/uv/llm_server/bin/vllm", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 51, in main
+    args.dispatch_function(args)
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 27, in cmd
+    uvloop.run(run_server(args))
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/uvloop/__init__.py", line 109, in run
+    return __asyncio.run(
+           ^^^^^^^^^^^^^^
+  File "/home/ctrenton/.local/share/uv/python/cpython-3.12.8-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/home/ctrenton/.local/share/uv/python/cpython-3.12.8-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/uvloop/__init__.py", line 61, in wrapper
+    return await main
+           ^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1069, in run_server
+    async with build_async_engine_client(args) as engine_client:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ctrenton/.local/share/uv/python/cpython-3.12.8-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 146, in build_async_engine_client
+    async with build_async_engine_client_from_engine_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ctrenton/.local/share/uv/python/cpython-3.12.8-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 166, in build_async_engine_client_from_engine_args
+    vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1154, in create_engine_config
+    model_config = self.create_model_config()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1042, in create_model_config
+    return ModelConfig(
+           ^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/config.py", line 423, in __init__
+    hf_config = get_config(self.hf_config_path or self.model,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/ctrenton/uv/llm_server/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 283, in get_config
+    raise ValueError(error_message) from e
+ValueError: Invalid repository ID or local directory specified: 'meta-llama/Llama-3.1-Instruct-8B'.
+Please verify the following requirements:
+1. Provide a valid Hugging Face repository ID.
+2. Specify a local directory that contains a recognized configuration file.
+   - For Hugging Face models: ensure the presence of a 'config.json'.
+   - For Mistral models: ensure the presence of a 'params.json'.
+

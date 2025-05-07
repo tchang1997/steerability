@@ -2,14 +2,21 @@
 
 This is the official repo for measuring steerability in LLMs. 
 
+![image](./output.png)
+
 ## Quickstart
+
+Install required dependencies via `uv pip install -r requirements.txt`, followed by `bash initial_setup.sh` to pre-download some requirement NLTK and Spacy models. 
 
 First, download the CSV of the original steerability probe here: [TODO]
 
 Simply run the following:
 ```
-python steer_eval.py --config [YOUR_CONFIG]
+python steer_eval.py --config [YOUR_CONFIG] --api-config [CONFIG]
 ```
+where `--api-config` points to a file storing a JSON with your OpenAI API key if needed (e.g., `{"api-key": "sk-..."}`).
+
+In the provided example at `config/qwen3_example.yml`, we run the steerability probe end-to-end on Qwen3-0.6B for demonstration. This takes ~30 minutes total. **By default, the script requires manual review of rewritten texts flagged by the LLM-as-judge.** 
 
 Supported inference providers:
 * OpenAI API
