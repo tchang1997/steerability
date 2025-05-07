@@ -14,13 +14,15 @@ from ruamel.yaml import YAML
 from sammo.base import Template
 from sammo.components import Output, GenerateText
 from sammo.throttler import AtMost
-from scipy.stats import kendalltau
 from transformers import AutoTokenizer
 
 from steerability.custom_runners import VLLMOpenAIChat
 from steerability.utils.model_output_cleaner import clean_model_output
 
 from typing import Optional, Union
+
+import logging
+logger = logging.getLogger(__name__)
 
 pd.options.mode.chained_assignment = None
 yaml = YAML(typ='safe')
@@ -33,7 +35,7 @@ def maybe_truncate(s: str, tokenizer: AutoTokenizer) -> str:
         return "<nan>" # dummy null response
     input_ids = tokenizer.encode(s, truncation=True, max_length=MAX_RESPONSE_LENGTH_FOR_JUDGE)
     if len(input_ids) == MAX_RESPONSE_LENGTH_FOR_JUDGE:
-        print(f"Truncated overlong response:", s[:1000] + "...")
+        #print(f"Truncated overlong response:", s[:1000] + "...") -- don't clutter up stdout now
         return tokenizer.decode(input_ids, skip_special_tokens=True)
     else:
         return s
@@ -107,7 +109,7 @@ def initialize_chat_instance(
     resp.raise_for_status()
     llm_name = resp.json()["data"][0]["id"]
     cache_file = llm_name.replace("/", "_") + ("_pairwise_judge.tsv" if cache_suffix is None else cache_suffix)
-    print(f"Detected vLLM instance at {url} running {llm_name}. Creating vLLM SAMMO runner with cache {cache_file}.")
+    logger.info(f"Detected vLLM instance at {url} running {llm_name}. Creating vLLM SAMMO runner with cache {cache_file}.")
     return VLLMOpenAIChat(
         model_id=llm_name,
         api_config=api_config, 
@@ -182,6 +184,9 @@ def parse_and_score(pset_with_answers: pd.DataFrame) -> pd.DataFrame:
 
     results = {}
     attributes = [col[len("higher_"):-len("_choice")] for col in df.columns if col.startswith("higher_") and col.endswith("_choice")]
+
+    from scipy.stats import kendalltau # move import here -- never used otherwise + causes error
+
     for attr in attributes:
         try:
             judge_answers = label_to_ordinal(df[f"higher_{attr}_choice"])

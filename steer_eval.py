@@ -4,7 +4,6 @@ from rich import print
 from rich.panel import Panel
 from rich.table import Table
 from rich.console import Group
-from rich.columns import Columns
 
 import pandas as pd
 
@@ -23,6 +22,7 @@ logging.basicConfig(
     format="[%(levelname)s] %(asctime)s [%(filename)s:%(lineno)d] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+logging.getLogger("sammo").setLevel(logging.WARNING)
 
 RESULT_DIR = Path("./results")    
 

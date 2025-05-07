@@ -40,12 +40,15 @@ def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = Fals
     env["NCCL_P2P_DISABLE"] = "1"
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env["CUDA_VISIBLE_DEVICES"] = os.environ["CUDA_VISIBLE_DEVICES"]
+        logger.info(f"Setting CUDA visible devices for vLLM instance to {env['CUDA_VISIBLE_DEVICES']}")
     if is_local_path(model_name):
         env["USE_FASTSAFETENSOR"] = "true"
+        logger.info(f"Local model path detected. Setting USE_FASTSAFETENSOR='true'.")
 
     port = str(cfg["port"])
     vllm_cmd = [
         "vllm", "serve", model_name,
+        "--host", "localhost",
         "--port", port,
         "--max-model-len", str(cfg["max_model_len"]),
         "--gpu-memory-utilization", str(cfg["gpu_memory_utilization"]),
@@ -65,11 +68,14 @@ def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = Fals
         proc = subprocess.Popen(vllm_cmd, env=env, stdout=out, stderr=err)
 
     for _ in range(MAX_VLLM_START_TIMEOUT // HEALTH_CHECK_FREQ):
+        if proc.poll() is not None:
+            raise RuntimeError(f"vLLM subprocess exited early with return code {proc.returncode}. Check {stdout_log} and {stderr_log} for more information.")
         try:
             resp = requests.get(f"http://localhost:{port}/health")
             if resp.status_code == 200:
                 logger.info("✅ vLLM server ready!")
                 return proc
+            
         except requests.exceptions.ConnectionError:
             pass
         logger.info("Waiting for vLLM to start")

@@ -10,9 +10,13 @@ import re
 
 try:
     from convokit import PolitenessStrategies
-except ValueError as e:
+except ModuleNotFoundError as e:
     print("Unable to import convokit:", e)
-from detoxify import Detoxify
+
+try:
+    from detoxify import Detoxify
+except ModuleNotFoundError as e:
+    print("Unable to import detoxify:", e)
 
 try:
     from empath import Empath

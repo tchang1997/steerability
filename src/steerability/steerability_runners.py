@@ -5,18 +5,13 @@ import pandas as pd
 
 from steerability.instruction_generator import load_instruction_database, get_instruction_generator
 from steerability.llm_interactor import LLMInteractor
-from steerability.llm_launcher import launch_goalspace_server, launch_judge
+from steerability.llm_launcher import block_until_healthy, launch_goalspace_server, launch_judge
 from steerability.utils.llm_groundedness import create_problem_set, initialize_chat_instance, parse_and_score, interactive_review, judge
 
 from typing import Any, Optional
 
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(levelname)s] %(asctime)s [%(filename)s:%(lineno)d] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 NORMALIZATION_CFG = Path("./config/goalspace_defaults/normalization.yml")
 
@@ -60,14 +55,16 @@ def launch_steerability_eval(
             prompts,
             normalization_cfg=NORMALIZATION_CFG, # one day let's not hardcode this
         ) # seed_data for normalization only -- refactor someday?
+        block_until_healthy(goalspace_proc, uvicorn_cfg["port"]) # just in case
     except Exception as e:
         exception = e
     finally:
         if goalspace_proc is not None:
-            if goalspace_proc.poll() is not None:
+            if goalspace_proc.poll() is None:
                 goalspace_proc.terminate()
                 logger.info("Sent SIGTERM to goalspace server.")
             else:
+
                 logger.debug("Goalspace server terminated gracefully.")
         if exception is not None:
             raise exception
@@ -107,7 +104,7 @@ def run_interactive_llm_as_judge(judge_cfg: str, probe: pd.DataFrame, api_config
         exception = e
     finally:
         if judge_proc is not None:
-            if judge_proc.poll() is not None:
+            if judge_proc.poll() is None:
                 judge_proc.terminate() 
                 logger.info("SIGTERM sent to judge vLLM instance.")
             else:

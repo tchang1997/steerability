@@ -26,6 +26,9 @@ from steerability.utils.probe_utils import get_nonnull_targets
 from beartype.typing import Dict
 from typing import Optional, Union
 
+import logging
+logger = logging.getLogger(__name__)
+
 DEFAULT_LLM_CALL_TIMEOUT = 3600
 
 @beartype
@@ -93,7 +96,7 @@ class LLMInteractor(object):
                 api_config = json.load(f)
                 if re.search(r"[^\w\d.\-\+]", llm_name):
                     if "/" in llm_name:
-                        print("`/` detected in model name. Checking HuggingFace to ensure model exists.")
+                        logger.info("`/` detected in model name. Checking HuggingFace to ensure model exists.")
                         from huggingface_hub import HfApi
                         api = HfApi()
                         api.model_info(llm_name)

@@ -3,7 +3,8 @@ results/
 results_from_remote/ 
 .pylintrc
 .vscode/
-data/*.json
+data/
+!data/prompts
 legacy/
 *.swp
 wandb/
