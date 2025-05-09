@@ -88,7 +88,7 @@ function draw() {
 
     drawAxes();
     textAlign(CENTER);
-    textFont("monospace", 16);  // monospace
+    textFont("monospace", 14);  // monospace
     fill(255);  // light gray
     noStroke();
     xAxisLabel = $("#xcol").val();

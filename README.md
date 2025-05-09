@@ -2,7 +2,7 @@
 
 This is the official repo for measuring steerability in LLMs. 
 
-![image](./output.png)
+![Steerflow Demo](src/steerflow/preview.gif)
 
 ## Installation
 
@@ -10,7 +10,7 @@ We recommend `uv` as the package manager. Start by running
 ```
 uv venv /path/to/your/env/ --python 3.12.8 --seed # recommended version
 source /path/to/your/env/bin/activate
-uv pip install -r requirements.txt
+uv pip install -e .
 bash initial_setup.sh # makes result directories, downloads auxiliary data
 ```
 
@@ -27,7 +27,10 @@ CUDA_VISIBLE_DEVICES=... python steer_eval.py --config [YOUR_CONFIG] --api-confi
 ```
 where `--api-config` points to the API key file described above. 
 
-In the provided example at `config/qwen3_example.yml`, we run the steerability probe end-to-end on Qwen3-0.6B for demonstration. This takes ~30 minutes total. **By default, the script requires manual review of rewritten texts flagged by the LLM-as-judge.** 
+In the provided example at `config/qwen3_example.yml`, we run the steerability probe end-to-end on Qwen3-0.6B for demonstration. This takes ~30 minutes total. **By default, the script requires manual review of rewritten texts flagged by the LLM-as-judge.** When you're finished, you'll see a print-out of key metrics. You can also play with the flow diagrams here:
+```
+steerflow launch --port 12347
+```
 
 Supported inference providers:
 * OpenAI API

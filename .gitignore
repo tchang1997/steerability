@@ -21,7 +21,7 @@ src/steerflow/static/_field.json
 *.html
 !src/steerflow/templates/index.html
 *.gif
-gifs/
+!src/steerflow/preview.gif
 
 *.log
 
