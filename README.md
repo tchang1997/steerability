@@ -4,6 +4,8 @@ This is the official repo for measuring steerability in LLMs.
 
 ![Steerflow Demo](src/steerflow/preview.gif)
 
+*If you are interested in replicating the empirical analyses of our paper more closely, please consult `./src/steerability/REPLICATION.md`!*
+
 ## Installation
 
 We recommend `uv` as the package manager. Start by running
@@ -47,15 +49,34 @@ This repo is very early stage and likely will change without notice. Issues and 
 
 ## Steerability from scratch
 
+*This guide for building a steerability probe from scratch is under construction.*
+
+All paths are relative to the `steerability` module subfolder (*i.e.*, `cd src/steerability` from here). 
+
 To measure steerability, you need to:
 * Find a list of "dimensions" you care about, that you can measure (`goals.py`)
 * Find a set of "seed texts" that you'd like to steer (`seed_data.py`)
 * Map those seed texts into your goal-space, and generate a steerability probe (`generate_steerability_probe.py`).
 * From there, you can follow the quickstart. 
 
-The guide for building a steerability probe from scratch is under construction. 
+If you're just interested in using the goal dimensions we already support, here's how we generated our probe. First, we pre-processed seed data in line with some filtering rules:
+```
+    python seed_data.py --config config/seed_data/seed_data_v2.yml
+```
+In general, `config/seed_data/*.yml` files should name the HuggingFace datasets of interest, and the columns containing source texts. Examples of pre-processing rules can be found in the example YAML file; *e.g.*, de-duplication, paragraph-level chunking, min/max length filtering.
 
-## Feature Support
+Second, we mapped all of the seed texts to goal-space and computed uniform sampling weights:
+```
+    python generate_steerability_probe.py --seed-data ./data/v2_seed_data.csv --config [CONFIG_FILE] --goals [GOAL_DIMENSIONS] \ # optional args follow
+        --use-async --uvicorn-port 9999 --max-workers 32
+```
+where the config file for `./src/steerability/generate_steerability_probe.py` used in our work can be found at `./src/steerability/config/probes/*.yml`. See `./src/steerability/goals.py` for goal dimension names supported. `--use-async` can be passed for a massive speedup, but you need to manually spin up a goalspace-mapping server first:
+```
+    uvicorn steerability.goalspace_server:app --host 127.0.0.1 --port [PORT] --workers [NUM_CPUS]
+```
+This'll get you a CSV that can be directly used in `steer_eval.py` (replace the `probe` key with your CSV in the example config files). 
+
+## Feature Support Roadmap
 
 | Feature                                             | Support Level |
 |-----------------------------------------------------|---------------|
@@ -71,7 +92,7 @@ While there are scripts supporting most of the above features, they have not bee
 
 ## Citation
 
-If you find our work useful, please cite our work:
+If you find our work or this repo useful, please cite our work:
 ```
 @misc{chang2025steerability,
     [FORTHCOMING]
