@@ -54,6 +54,9 @@ def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = Fals
         "--gpu-memory-utilization", str(cfg["gpu_memory_utilization"]),
         "--dtype", cfg.get("dtype", "auto"),
     ]
+    if "CUDA_VISIBLE_DEVICES" in env:
+        n_devices = len(env["CUDA_VISIBLE_DEVICES"].split(","))
+        vllm_cmd += ["--tensor-parallel-size", str(n_devices)]
 
     logger.info(f"Starting vLLM server with command: {' '.join(vllm_cmd)}")
     pid = os.getpid()
