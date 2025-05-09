@@ -40,3 +40,8 @@ Our fine-tuning pipeline depends on a custom fork of `trl`. Config files describ
 ```
 
 and training probes will be saved at `./training_probes/` for further inspection. By default, we also log via `wandb`, which can be configured via `export WANDB_PROJECT=[your_project_name]`.
+
+## Creating steerability plots and flow diagrams
+
+All figures in our paper were created in `create_steerability_plots.ipynb`, including static vector flow diagrams. For dynamic flow diagrams, we recommend the `steerflow` tool (see main README)!
+

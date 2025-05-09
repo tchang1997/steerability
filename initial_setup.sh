@@ -9,4 +9,4 @@ mkdir -p results/steerability_metrics
 echo "Downloading required models..."
 python -m spacy download en_core_web_sm
 echo "Downloading steerability probes..."
-huggingface-cli download --repo-type dataset tchang97/steerbench --local-dir ./data
+huggingface-cli download --repo-type dataset REDACTED --local-dir ./data
