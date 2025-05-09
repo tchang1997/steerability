@@ -5,7 +5,7 @@ nltk==3.9.1
 numpy==2.2.5
 openai==1.77.0
 pandas==2.2.3
-pylats==0.37
+pylats @ git+https://github.com:tchang1997/pylats.git@main
 requests==2.32.3
 ruamel-yaml
 rich

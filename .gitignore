@@ -13,11 +13,13 @@ wandb/
 artifacts/
 logs/
 **/eval_outputs/
+src/steerflow/static/_field.json
 
 # no figures for now
 *.pdf
 *.svg
 *.html
+!src/steerflow/templates/index.html
 *.gif
 gifs/
 

@@ -13,12 +13,14 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp==3.11.18",
     "beartype",
+    "click",
+    "flask",
     "huggingface_hub[cli]",
     "nltk==3.9.1",
-    "numpy==2.2.5",
+    "numpy<2.0",
     "openai==1.77.0",
     "pandas==2.2.3",
-    "pylats==0.37",
+    "plotly",
     "requests==2.32.3",
     "ruamel.yaml",
     "rich",
@@ -31,10 +33,15 @@ dependencies = [
 
     # GitHub dependency
     "sammo @ git+https://github.com/tchang1997/sammo.git@main",
+    "pylats @ git+https://github.com/tchang1997/pylats.git@main"
+
 ]
 
+[project.scripts]
+steerflow = "steerflow.__main__:cli"
+
 [tool.setuptools]
-packages = ["steerability"]
+packages = ["steerability", "steerflow"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
