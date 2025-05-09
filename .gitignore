@@ -154,22 +154,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-Decision Heuristic Shift/Datasets/
-
-# Input datasets and related subdirectories
-Copilot Analysis/Data/experiments
-Copilot Analysis/Data/experiments/motivating_experiments
-Copilot Analysis/Data/experiments/experiment_sys_bias_variance
-Copilot Analysis/Data/exeriments/wikipedia_experiment
-Copilot Analysis/Data/amazon_qa
-Copilot Analysis/Data/kaggle_ubuntu_sample
-Copilot Analysis/Data/reddit_aita
-Copilot Analysis/Data/reddit_movie
-Copilot Analysis/Data/wikipedia
-Copilot Analysis/Data/parameterized_templates_experiment
-Copilot Analysis/pllib_release_christine.zip
-Copilot Analysis/qa_Electronics.json.gz
 
 
-
-underspecification/OAI_CONFIG_LIST
