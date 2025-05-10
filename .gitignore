@@ -15,14 +15,10 @@ logs/
 **/eval_outputs/
 src/steerflow/static/_field.json
 .DS_Store
+!!docs/
 
 # no figures for now
 *.pdf
-*.svg
-*.html
-!src/steerflow/templates/index.html
-*.gif
-!src/steerflow/preview.gif
 
 *.log
 
