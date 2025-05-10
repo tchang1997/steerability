@@ -87,7 +87,7 @@
      <div class="logo-mobile">
          <a href="/"><img width=32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
     </div>
-    <h1 style="color: white; font-size: 1.8em; margin: 0 0.5em; text-align: left">steerability.org</h1>
+    <h1 style="color: white; font-size: 1.8em; margin: 0 0.5em; text-align: left"><a href="/" style="color: white; text-decoration: none;">steerability.org</a></h1>
     <div id="main-menu" class="main-menu">
   
 
@@ -121,10 +121,10 @@
     <div class="row justify-content-start">
       <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1" style="width: 60%">
         <h1 id="serif---a-jekyll-business-theme" style="color: #f0f0f0; font-family: Playfair Display, serif">
-          Steerability: a turn worth making on the road to alignment.
+          Steerability: an on-ramp on the road to alignment.
         </h1>
         <p style="color: #eeeeee; font-family: Arvo, serif">
-          LLMs can do Olympiad math, follow complex instructions, and write like Hemingway. But are they really steerable towards user goals?
+          They say that LLMs can do Olympiad math, follow complex instructions, and write like Hemingway. But are they really steerable towards user goals?
           <br> <br>
           Learn more about our new evaluation framework for measuring the steerability of LLMs.
         </p>
@@ -150,7 +150,7 @@
 
 
 <div class="strip strip-grey" style="background-color: #f9eded;">
-  <div class="container pt-6 pb-6 pt-md-10 pb-md-10">
+  <div class="container pt-6 pb-6">
     <div class="row justify-content-center">
 
       
@@ -200,10 +200,10 @@
 </section>-->
 
 <section style="background-color: #fff; padding: 3em 0; max-width: 960px; margin: 0 auto;">
-
+    <h1>Quickstart</h1><hr>
     <div class="install-container">
 <h2>Installation</h2>
-<p>We recommend the <a href="https://docs.astral.sh/uv/">uv</a> package manager. 
+<p>We recommend creating a new virtual environment. We use the <a href="https://docs.astral.sh/uv/">uv</a> package manager to do so. 
 <section class="install-block">
   <pre><code>
     uv venv /path/to/your/env/ --python 3.12.8 --seed # recommended version
@@ -216,17 +216,17 @@
     </div>
   </div>
 
-<div style="max-width: 960px; margin: 0 auto; margin-bottom: 2em;">
+<div style="max-width: 1080px; margin: 0 auto; margin-bottom: 2em;">
 
-<h2>Quickstart</h2>
+<h2>Usage</h2>
 <hr>
   <!-- Step 1 -->
 
   <div style="display: flex; gap: 2em; flex-wrap: wrap; margin-bottom: 2em;">
     <div style="flex: 1 1 300px;">
-      <h3>1. Create a config file</h3>
+      <h3>1. Create a configuration file</h3>
       <p>
-      Your config specifies which model to use, the prompt type, where to save results, and other decoding parameters. We show an example config that you can use. We support both <a href="https://platform.openai.com/docs/models">OpenAI</a> and <a href="https://docs.vllm.ai/en/latest/models/supported_models.html">vLLM-supported models</a>!<br><br>For OpenAI models, provide the model endpoint (example: <code>gpt-4o-2024-08-06</code>). For vLLM models, provide the HuggingFace model ID (example: <code>google/gemma-3-1b-it</code>).
+      Your config specifies which model to use, the prompt type, where to save results, and other parameters. We show an example config that you can use. We support both <a href="https://platform.openai.com/docs/models">OpenAI</a> and <a href="https://docs.vllm.ai/en/latest/models/supported_models.html">vLLM-supported models</a>!<br><br>For OpenAI models, provide the model endpoint (example: <code>gpt-4o-2024-08-06</code>). For vLLM models, provide the HuggingFace model ID (example: <code>google/gemma-3-1b-it</code>).
     </p>
     </div>
     <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="install-block code-column">
@@ -253,7 +253,7 @@ save_as: "gemma_3_1b_results"
   <!-- Step 2 -->
   <div style="display: flex; gap: 2em; flex-wrap: wrap; margin-bottom: 2em;">
     <div style="flex: 1 1 300px;">
-      <h3>2. Run the script</h3>
+      <h3>2. Run the steerability evaluation script</h3>
       <p>
       From the repo root, use the following command to run a complete steerability evaluation.<br><br>You'll want to point <code>--api-config</code> to some file storing your API key in this format: <code>{"api-key": "sk-..."}</code>. 
       </p>
@@ -270,7 +270,7 @@ save_as: "gemma_3_1b_results"
     <div style="flex: 1 1 300px;">
       <h3>3. Approve flagged completions</h3>
       <p>
-      We highly recommend using LLM-as-a-judge to flag responses that may not be valid rewrites (<i>e.g.</i>, refusals). You’ll be prompted to confirm whether responses flagged by the model are acceptable rewrites by approving or overriding the LLM's reasoning (Yes/No) in an interactive dialog.<br><br>Note that we've truncated the text for easier reading. During the actual steerability evaluation, you'll get to see the entire rewritten and original texts.
+      We recommend using LLM-as-a-judge to flag responses that may not be valid rewrites (<i>e.g.</i>, refusals). You’ll be prompted to confirm whether responses flagged by the model are acceptable rewrites by approving or overriding the LLM's reasoning (Yes/No) interactively.<br><br>We've truncated the text for easier reading here, but you'll see the complete rewritten and original texts during the actual evaluation.
       </p>
     </div>
     <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="install-block code-column">
@@ -291,7 +291,7 @@ save_as: "gemma_3_1b_results"
     <div style="flex: 1 1 300px;">
       <h3>4. View results</h3>
       <p>
-        After filtering, you'll see a Rich printout summarizing steering error, miscalibration, and side-effects.<br><br>This printout also includes information about the model and probe used, the prompting strategy, and the results of LLM-as-judge evaluation.  
+        After filtering, you'll see a printout summarizing steering error, miscalibration, and side-effects.<br><br>This printout also includes information about the model and probe used, the prompting strategy, and the results of LLM-as-judge evaluation. The results are saved in a JSON file for later viewing as well. 
       </p>
     </div>
     <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="install-block code-column">
@@ -323,7 +323,7 @@ Saved JSON to results/steerability_metrics/gemma_3_1b.json</code></pre>
   <div style="flex: 1 1 300px;">
     <h3>5. Visualize how LLMs steer in goal-space</h3>
     <p>
-    You can use our packaged Steerflow application to generate animated vector flow diagrams of model behavior in different goal subspaces and see where models consistently overshoot, undershoot, or induce side-effects.<br><br>Here, we show an animated version of the reading difficulty-formality subspace: how the model "moves" texts in goal-space when we asked for changes in reading level, but not formality. 
+    Use our packaged Steerflow application to generate animated vector flow diagrams of model behavior in different goal subspaces. Steerflow can help you explore where models consistently overshoot, undershoot, or induce side-effects.<br><br>Here, we show an animated version of the reading difficulty-formality subspace: how the model "moves" texts in goal-space when we asked for changes in reading level, but not formality. 
     </p>
   </div>
   <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="code-column">
