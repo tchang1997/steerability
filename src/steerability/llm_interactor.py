@@ -16,7 +16,7 @@ from sammo.components import Output, GenerateText
 from sammo.throttler import AtMost
 from tqdm.auto import tqdm
 
-from steerability.custom_runners import DeepInfraChat, VLLMOpenAIChat
+from steerability.custom_runners import VLLMOpenAIChat
 from steerability.goals import Goalspace
 from steerability.instruction_generator import InstructionGenerator
 from steerability.rewards import send_request
