@@ -25,12 +25,14 @@ $("#fileSelect").change(function () {
 let showSourcePoints = true;
 
 $("#showSource").change(function () {
-showSourcePoints = this.checked;
-redraw();  // useful if in noLoop mode
+  showSourcePoints = this.checked;
+  redraw();  // useful if in noLoop mode
 });
 
 
 let running = false;
+let flow_success = false;
+let flow_title = "";
 let particles = [];
 const numParticles = 500;
 const paddingLeft = 60;
@@ -58,18 +60,41 @@ function initializePlot() {
 }
 
 function getJetColor(normMag) {
-    normMag = constrain(normMag, 0, 1);
+  normMag = constrain(normMag, 0, 1);
+  colorMode(HSB, 360, 100, 100, 100);
 
+  let hue, sat = 100, bright;
 
-    // Hue 260 (deep blue) → 0 (red), full sat/bright
-    const hue = map(normMag, 0, 1, 260, 345);
-    colorMode(HSB, 360, 100, 100, 100);
-    const col = color(hue, 100, 100, 100);  // Full neon
-    colorMode(RGB, 255);
-    return col;
+  if (normMag < 0.15) {
+    // Cerulean → Indigo
+    hue = map(normMag, 0, 0.15, 200, 240);
+    bright = map(normMag, 0, 0.15, 70, 85);
+  } else if (normMag < 0.5) {
+    // Indigo → Magenta
+    hue = map(normMag, 0.15, 0.5, 240, 320);
+    bright = map(normMag, 0.15, 0.5, 85, 95);
+  } else if (normMag < 0.85) {
+    // Magenta → Hot Pink
+    hue = map(normMag, 0.5, 0.85, 320, 340);
+    bright = map(normMag, 0.5, 0.85, 95, 100);
+  } else {
+    // Hot Pink → Slight Red
+    hue = map(normMag, 0.85, 1.0, 340, 350);
+    bright = 100;
+  }
+
+  const col = color(hue % 360, sat, bright, 100);
+  colorMode(RGB, 255);
+  return col;
 }
 
 
+const FLOW_SPEED = 0.01;
+
+function compressedFade(t) {
+  const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
+  return Math.pow(raw, 1.5);  // steeper falloff
+}
 
 let xAxisLabel = "";
 let yAxisLabel = "";
@@ -82,7 +107,7 @@ function draw() {
 
     blendMode(ADD);  // luminous trails
     noStroke();
-    fill(15, 15, 20, 10);  // dark fade
+    fill(15, 15, 20, 40);  // dark fade
     blendMode(BLEND);
     rect(0, 0, width, height);
 
@@ -91,9 +116,10 @@ function draw() {
     textFont("monospace", 14);  // monospace
     fill(255);  // light gray
     noStroke();
-    xAxisLabel = $("#xcol").val();
-    yAxisLabel = $("#ycol").val();
-    text(`subspace: (${xAxisLabel}, ${yAxisLabel})`, width / 2, paddingTop - 10);
+
+    if (flow_success) {
+      text(flow_title, width / 2, paddingTop - 10);    
+    }
 
     colorMode(HSB, 360, 100, 100, 100);
     if (showSourcePoints && field && field.source_x && field.source_y) {
@@ -107,30 +133,60 @@ function draw() {
         }
       }
 
-      for (let p of particles) {
-        p.t += 0.01;
-        const baseTravel = 0.1
-        const travel = baseTravel * p.mag / maxMag;  // longer streaks for faster flow     
-        const progress = p.t % 1;
+    //   for (let p of particles) {
+    //     p.t += 0.01;
+    //     const baseTravel = 0.1
+    //     const travel = baseTravel * p.mag / maxMag;  // longer streaks for faster flow     
+    //     const progress = p.t % 1;
 
-        const base_x = p.x0 - 0.5 * travel * p.u;
-        const base_y = p.y0 - 0.5 * travel * p.v;
+    //     const base_x = p.x0 - 0.5 * travel * p.u;
+    //     const base_y = p.y0 - 0.5 * travel * p.v;
 
-        const x = base_x + travel * p.u * progress;
-        const y = base_y + travel * p.v * progress;
+    //     const x = base_x + travel * p.u * progress;
+    //     const y = base_y + travel * p.v * progress;
 
+    //     if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+
+    //     const px = map(x, 0, 1, paddingLeft, width - paddingRight);
+    //     const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
+
+    //     const col = getJetColor(p.mag / maxMag);
+    //     fill(col);
+    //     noStroke();
+    //     ellipse(px, py, 2.5, 2.5);
+        
+    // }
+    const travel = 0.1;
+    for (let p of particles) {
+      // Advance the particle's phase
+      p.t = (p.t + FLOW_SPEED) % 1.0;
+      const t1 = p.t % 1.0;
+      const t2 = (p.t + 0.5) % 1.0;
+
+      const a1 = compressedFade(t1);
+      const a2 = compressedFade(t2);
+      const norm = Math.max(Math.pow(a1, 1) + Math.pow(a2, 1), 1e-5);
+
+      const alpha1 = a1 / norm;
+      const alpha2 = a2 / norm;
+
+      for (let [t, alpha] of [[t1, alpha1], [t2, alpha2]]) {
+        const x = p.x0 - 0.5 * travel * p.u + travel * p.u * t;
+        const y = p.y0 - 0.5 * travel * p.v + travel * p.v * t;
         if (x < 0 || x > 1 || y < 0 || y > 1) continue;
 
         const px = map(x, 0, 1, paddingLeft, width - paddingRight);
         const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
 
-        const col = getJetColor(p.mag / maxMag);
-        fill(col);
+        const baseColor = getJetColor(p.mag / maxMag);
+        baseColor.setAlpha(alpha * 255);
+
+        fill(baseColor);
         noStroke();
-        ellipse(px, py, 2.5, 2.5);
-        
+        ellipse(px, py, 3, 3);
+      }
     }
-    
+
     colorMode(RGB, 255);  // reset mode
 }
       
@@ -200,19 +256,27 @@ function drawAxes() {
 function showStatus(msg, color = "red") {
     $("#status").text(msg).css("color", color);
 }
+
+function resetFlowCanvas() {
+  // Clears particles but keeps grid and axis
+  background(15, 15, 20);  // dark grid background
+  drawAxes();              // custom function to redraw ticks/axes
+  particles = [];          // clear animated flow particles
+}
+
   
 function generatePlot() {
     const xcol = $("#xcol").val();
     const ycol = $("#ycol").val();
     const filename = $("#fileSelect").val();
-  
     if (!xcol || !ycol || !filename) {
       showStatus("Please select a file and both axes.");
       return;
     }
   
     showStatus("Generating flow...");
-  
+
+    flow_title = `subspace: (${xcol}, ${ycol})`;
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
@@ -243,9 +307,14 @@ function generatePlot() {
             running = true;
             loop();
             showStatus("Flow loaded.", "green");
+            flow_success = true;
         });
       },
-      error: () => showStatus("Error generating flow.")
+      error: () => {
+        resetFlowCanvas();
+        showStatus("Error generating flow.");
+        flow_success = false;
+      }
     });
   }
   

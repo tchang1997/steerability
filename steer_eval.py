@@ -101,12 +101,12 @@ def print_steerability_summary(cfg: dict, judge_cfg: dict, steer_stats: dict, ma
     # === Metrics Table ===
     table = Table(title="STEERABILITY METRICS", show_header=True, header_style="bold green", width=max_panel_width)
     table.add_column("Metric", style="bold")
-    table.add_column("Mean ± Std", justify="right")
+    table.add_column("Median (IQR)", justify="right")
 
     def fmt(metric):
-        m = steer_stats["steerability"][metric]["mean"]
-        s = steer_stats["steerability"][metric]["std"]
-        return f"{m:.3f} ± {s:.3f}"
+        m = steer_stats["steerability"][metric]["median"]
+        s = steer_stats["steerability"][metric]["iqr"]
+        return f"{m:.3f} ({s:.3f})"
 
     table.add_row("Steering Error", fmt("steering_error"))
     table.add_row("Miscalibration", fmt("miscalibration"))

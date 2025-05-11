@@ -16,7 +16,7 @@ from sammo.components import Output, GenerateText
 from sammo.throttler import AtMost
 from tqdm.auto import tqdm
 
-from steerability.custom_runners import DeepInfraChat, VLLMOpenAIChat
+from steerability.custom_runners import VLLMOpenAIChat
 from steerability.goals import Goalspace
 from steerability.instruction_generator import InstructionGenerator
 from steerability.rewards import send_request
@@ -90,6 +90,9 @@ class LLMInteractor(object):
         self.async_mode = async_mode
         self.goalspace_port = goalspace_port
         self.max_simul_goalspace_reqs = max_simul_goalspace_reqs
+        logger.info(f"Creating LLMInteractor with args: llm_name={self.llm_name}, chat_type={self.chat_type}, cache_file={self.chat_file}, "
+                f"instruction_generator={self.instruction_generator.__name__}, num_generations={self.num_generations}, "
+                f"text_gen_kwargs={self.text_gen_kwargs}")
 
         if os.path.isfile(api_config):
             with open(api_config, "r") as f:
@@ -185,13 +188,15 @@ class LLMInteractor(object):
     ) -> pd.DataFrame:
         if isinstance(prompts, str):
             prompts = [prompts]
+        # since we do caching -- we can later check if all outputs are coherent...
         outputs = Output(GenerateText(Template("{{input}}"), **self.text_gen_kwargs)).run(self.chat_instance, prompts.tolist())
+
         final_output = []
         raw_output = []
         for i, raw_resp in enumerate(outputs.outputs.llm_responses): 
             try:
                 iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
-                for resp in iter_obj: # do we need [0]?
+                for resp in iter_obj: 
                     clean_resp = clean_model_output(self.llm_name, resp) # by default, only return one response
                     clean_resp = self.instruction_generator.clean_response(clean_resp) 
                     raw_output.append(resp)

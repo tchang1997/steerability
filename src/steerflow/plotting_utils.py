@@ -23,7 +23,7 @@ def grab_subspace(df, *args, unspecified=True, specified_first=False, steering_g
     final.columns = ["x1", "x2", "dx1", "dx2", "dx1_ideal", "dx2_ideal"]
     return final
 
-def export_vector_field(subspace, xcol, ycol, mode="movement", output_path="static/_field.json"):
+def export_vector_field(subspace, xcol, ycol, mode="movement", output_path="static/_field.json", flow_granularity=65, interp_method="cubic"):
     x1, x2 = subspace["x1"], subspace["x2"]
 
     if mode == "movement":
@@ -33,12 +33,12 @@ def export_vector_field(subspace, xcol, ycol, mode="movement", output_path="stat
         dx2 = subspace["dx2_ideal"] - subspace["dx2"]
 
     grid_x, grid_y = np.meshgrid(
-        np.linspace(x1.min(), x1.max(), 20),
-        np.linspace(x2.min(), x2.max(), 20)
+        np.linspace(x1.min(), x1.max(), flow_granularity),
+        np.linspace(x2.min(), x2.max(), flow_granularity)
     )
 
-    grid_u = griddata((x1, x2), dx1, (grid_x, grid_y), method="linear")
-    grid_v = griddata((x1, x2), dx2, (grid_x, grid_y), method="linear")
+    grid_u = griddata((x1, x2), dx1, (grid_x, grid_y), method=interp_method)
+    grid_v = griddata((x1, x2), dx2, (grid_x, grid_y), method=interp_method)
 
     valid = np.isfinite(grid_u) & np.isfinite(grid_v)
 

@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 MAX_VLLM_START_TIMEOUT = 7200
-HEALTH_CHECK_FREQ = 10
+HEALTH_CHECK_FREQ = 30
 
 def is_local_path(model_name: str) -> bool:
     return Path(model_name).exists()
@@ -94,6 +94,7 @@ def launch_llm(model_name: str, vllm_config: str):
         if proc is None:
             raise RuntimeError(f"vLLM server failed to start in time. Try pre-downloading the model weights, or file an issue.")
     elif is_openai_model(model_name):
+        proc = None
         chat_type = "openai"
     else:
         raise ValueError(f"Model '{model_name}' not recognized as a local path, HuggingFace model, or OpenAI model.")
