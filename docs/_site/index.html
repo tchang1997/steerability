@@ -100,7 +100,7 @@
   position: relative;
   width: 100%;
   height: 600px;
-  background-image: url('/images/illustrations/preview.gif');
+  background-image: url('/images/illustrations/steer_demo.gif');
   background-size: cover;
   background-position: center;
   border-radius: 0px;
@@ -112,7 +112,7 @@
     top: 0; left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.6);  /* adjust darkness here */
+    background-color: rgba(0,0,0,0.3);  /* adjust darkness here */
     z-index: 0;
   "></div>
 
@@ -296,26 +296,25 @@ save_as: "gemma_3_1b_results"
     </div>
     <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="install-block code-column">
       <pre style="margin: 0;"><code>╭────────────────── STEERABILITY REPORT ───────────────────╮
-│ Model: google/gemma-3-1b-it                              │
+│ Model: gpt-4.1-nano-2025-04-14                           │
 │ Prompting strategy: direct (w/ neg. prompt)              │
 │ Probe: ./data/2025_06_steerbench_64x32.csv               │
 │ # of total responses: 2048                               │
 ╰──────────────────────────────────────────────────────────╯
 ╭────────────────── INTERACTIVE JUDGING ───────────────────╮
 │ Judge model: meta-llama/Llama-3.1-8B-Instruct            │
-│ # of valid responses: 2040 (99.61%)                      │
-│ # of LLM-flagged responses: 37 (1.81%)                   │
-│ # of overruled responses: 32 (1.56%)                     │
+│ # of valid responses: 2048 (100.00%)                     │
+│ # of LLM-flagged responses: 0 (0.00%)                    │
+│ # of overruled responses: 0 (0.00%)                      │
 ╰──────────────────────────────────────────────────────────╯
-                    STEERABILITY METRICS
+                    STEERABILITY METRICS                    
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Metric                       ┃                Mean ± Std ┃
+┃ Metric                       ┃              Median (IQR) ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Steering Error               │             0.654 ± 0.261 │
-│ Miscalibration               │             0.777 ± 0.502 │
-│ Orthogonality                │             0.781 ± 0.247 │
-└──────────────────────────────┴───────────────────────────┘
-Saved JSON to results/steerability_metrics/gemma_3_1b.json</code></pre>
+│ Steering Error               │             0.452 (0.239) │
+│ Miscalibration               │             0.556 (0.500) │
+│ Orthogonality                │             0.763 (0.338) │
+└──────────────────────────────┴───────────────────────────┘</code></pre>
     </div>
   </div>
   <hr>
@@ -328,12 +327,13 @@ Saved JSON to results/steerability_metrics/gemma_3_1b.json</code></pre>
   </div>
   <div style="padding: 0 1em; border-radius: 6px; font-size: 0.9em;" class="code-column">
       <div class="install-block">
-    <pre style="margin: 0;"><code>steerflow launch --port 12345
+    <pre style="margin: 0;"><code>cd src/steerflow
+steerflow launch --port 12345
 # go to http://localhost:12345 in your browser</code></pre>
       </div>
     <div style="margin-top: 1em">
     <h5>Flow diagram demo</h5>
-    <img src="/images/illustrations/preview.gif" alt="Flow diagram demo" style="width: 100%; border-radius: 8px" />
+    <img src="/images/illustrations/steer_demo.gif" alt="Flow diagram demo" style="width: 100%; border-radius: 8px" />
     </div>
   </div>
 </div>
