@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "steerability"
+version = "0.1.0"
+description = "Steerability evaluation for large language models."
+authors = [{ name = "Trenton Chang", email = "ctrenton@umich.edu" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp==3.11.18",
+    "beartype",
+    "click",
+    "flask",
+    "huggingface_hub[cli]",
+    "nltk==3.9.1",
+    "numpy<2.0",
+    "openai==1.77.0",
+    "pandas==2.2.3",
+    "plotly",
+    "requests==2.32.3",
+    "ruamel.yaml",
+    "rich",
+    "taaled==0.32",
+    "textstat==0.7.5",
+    "torch==2.6.0",
+    "transformers==4.51.3",
+    "uvicorn==0.34.2",
+    "vllm==0.8.5.post1",
+
+    # GitHub dependency
+    "sammo @ git+https://github.com/tchang1997/sammo.git@main",
+    "pylats @ git+https://github.com/tchang1997/pylats.git@main"
+
+]
+
+[project.scripts]
+steerflow = "steerflow.__main__:cli"
+
+[tool.setuptools]
+packages = ["steerability", "steerflow"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-dir]
+"" = "src"
+

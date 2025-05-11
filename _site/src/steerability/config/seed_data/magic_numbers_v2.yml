@@ -1,0 +1,20 @@
+# computed from the steerability probe via renormalize_goalspace given seed data from `steerbench_converted.csv`
+# and saved here for convenience. Empirical middle 95%.
+reading_difficulty:
+  min: 2.8
+  max: 12.9
+formality:
+  min: 40.37
+  max: 69.121634
+textual_diversity: 
+  min: 44.84394871794872
+  max: 128.54409583333333
+text_length: 
+  min: 78.
+  max: 1509.
+politeness:
+  min: -0.13
+  max: 0.134307
+positive_emotion:
+  min: 0.
+  mas: 0.016860

@@ -1,0 +1,4 @@
+A writer was asked to rewrite texts in a variety of ways. Before answering, they were asked to list some changes that they intended to make to the text. Given their responses, could you help me extract the proposed edits as a numbered list? Respond with only the numbered list and do not explain your response.
+
+**Proposed edits:**
+$edits

@@ -1,0 +1,18 @@
+probe: "./data/steerbench_v2.1_unweighted.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "meta-llama/Llama-3.1-8B-Instruct"
+    chat_type: "vllm"
+    cache_file: "vllm-meta-llama3.1-v2.1.tsv"
+    other_kwargs:
+        port: 16384 
+        max_simul_calls: 128 # 256 concurrent is the max we seem to be able to handle (max_simul_calls * num_generations)
+        timeout: 6000 # WHAT THE
+        text_gen_kwargs: # in sammo-language
+            randomness: 0.0
+            num_generations: 1
+        max_tokens: 4096 # same as main probe
+inst_addons:
+  disambig: True
+experiment_name: "v2/steerbench_v2.1_llama3.1_unweighted"
+seed: 42

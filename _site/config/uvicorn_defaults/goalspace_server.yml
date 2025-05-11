@@ -1,0 +1,9 @@
+host: "127.0.0.1"
+port: 16641
+workers: 32
+goal_dimensions:
+    - "reading_difficulty"
+    - "formality"
+    - "textual_diversity"
+    - "text_length"
+normalization: "./config/goalspace_defaults/normalization.yml"

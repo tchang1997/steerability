@@ -1,0 +1,18 @@
+aiohttp==3.11.18
+beartype
+huggingface_hub[cli]
+nltk==3.9.1
+numpy==2.2.5
+openai==1.77.0
+pandas==2.2.3
+pylats @ git+https://github.com:tchang1997/pylats.git@main
+requests==2.32.3
+ruamel-yaml
+rich
+sammo @ git+https://github.com:tchang1997/sammo.git@main
+taaled==0.32
+textstat==0.7.5
+torch==2.6.0
+transformers==4.51.3
+uvicorn==0.34.2
+vllm==0.8.5.post1

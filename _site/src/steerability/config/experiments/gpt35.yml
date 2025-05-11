@@ -1,0 +1,14 @@
+probe: "./data/steerbench_v2.1.csv"
+prompt_strategy: "direct"
+llm_settings:
+    llm_name: "gpt-3.5-turbo-0125"
+    chat_type: "openai"
+    cache_file: "gpt3.5_oai.tsv"
+    other_kwargs:
+        max_simul_calls: 8
+        timeout: 3600        
+        max_tokens: 4096 # same as main probe
+experiment_name: "v2/steerbench_v2_gpt35_turbo_0125"
+seed: 42
+inst_addons:
+  disambig: True

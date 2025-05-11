@@ -1,0 +1,18 @@
+/* Error: Can't find stylesheet to import.
+ *    ╷
+ * 29 │ @import "bootstrap/functions";
+ *    │         ^^^^^^^^^^^^^^^^^^^^^
+ *    ╵
+ *   /Users/ctrenton/steerability/docs/assets/css/style.scss 29:9  root stylesheet */
+
+body::before {
+  position: static;
+  display: block;
+  padding: 1em;
+  margin: 0 0 1em;
+  border-width: 0 0 2px;
+  border-bottom-style: solid;
+  font-family: monospace, monospace;
+  white-space: pre;
+  content: "Error: Can't find stylesheet to import.\a    \2577\a 29 \2502  @import \"bootstrap/functions\";\a    \2502          ^^^^^^^^^^^^^^^^^^^^^\a    \2575\a   /Users/ctrenton/steerability/docs/assets/css/style.scss 29:9  root stylesheet";
+}
