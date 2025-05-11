@@ -29,8 +29,8 @@ def call_llm(chat_instance, prompts):
     for raw_resp in outputs.outputs.llm_responses: 
         try:
             iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
-            for resp in iter_obj: # do we need [0]?
-                clean_resp = clean_model_output(chat_instance._model_id, resp) # by default, only return one response
+            for resp in iter_obj: 
+                clean_resp = clean_model_output(chat_instance._model_id, resp) 
                 raw_output.append(resp)
                 final_output.append(clean_resp)
         except Exception as e:

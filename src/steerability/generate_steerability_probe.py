@@ -24,7 +24,6 @@ from ruamel.yaml import YAML
 from tqdm.auto import tqdm
 
 from steerability.goals import Goalspace, GoalFactory, ALL_GOALS, DEFAULT_GOALS
-from steerability.llm_interactor import renormalize_goalspace
 from steerability.rewards import map_to_goalspace
 
 from typing import Optional, Union
@@ -238,13 +237,9 @@ if __name__ == '__main__':
     else:
         weighting_goals = Goalspace([GoalFactory.get_default(g) for g in args.weighting_goals])
 
-    #if "sampling_weights" not in dataset.columns:
     goalspace_df.loc[:, "sampling_weights"] = get_uniform_weights(goalspace_df, weighting_goals=weighting_goals) # for weights that sum to 1
     goalspace_df.loc[:, "sampling_weights_mean"] = goalspace_df["sampling_weights"] * len(goalspace_df) # for sample weight where 1 = vanilla 
-    #else:
-    #    print("Sampling weights found; skipping weight calculation.")
 
-    # only concat if we needed to recompute goal-space mappings and sampling weights
 
     steerability_probe = create_final_probe(
         goalspace_df,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
-from rewards import steerability_reward_wrapper
+from steerability.rewards import steerability_reward_wrapper
 
 @dataclass
 class SteerabilityProbeConfig:
@@ -111,25 +111,6 @@ class GoalspaceServerConfig:
         default = 300,
         metadata={"help": "Maximum time to wait (in seconds) for server to start up."}
     )
-
-@dataclass
-class UnslothLoraConfig:
-    lora_adapter_name: str = field(
-        metadata={"help": "LoRA adapter name for run."}
-    )
-    unsloth_random_state: int = field(
-        default=3407,
-        metadata={"help": "Random state for Unsloth LoRA model."}
-    )
-    unsloth_grad_checkpointing: Union[str, bool] = field(
-        default="unsloth",
-        metadata={"help": "Gradient checkpointing mode for unsloth PeFT. Supports `unsloth` option in addition to bools for long-context training."}
-    )
-    float8_kv_cache: bool = field(
-        default=False,
-        metadata={"help": "Whether to use a float8 KV cache in vLLM."}
-    )
-
 @dataclass
 class RewardConfig:
     rewards: List[str] = field(

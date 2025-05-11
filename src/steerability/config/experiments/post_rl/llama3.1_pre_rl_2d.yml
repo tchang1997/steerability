@@ -7,7 +7,7 @@ llm_settings:
     other_kwargs:
         port: 16384 
         max_simul_calls: 128 # 256 concurrent is the max we seem to be able to handle (max_simul_calls * num_generations)
-        timeout: 6000 # WHAT THE
+        timeout: 6000 
         text_gen_kwargs: # in sammo-language
             randomness: 0.0
             num_generations: 1

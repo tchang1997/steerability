@@ -2,17 +2,10 @@ import asyncio
 from argparse import ArgumentParser
 import ast
 from datetime import datetime
-from itertools import cycle, product
-import json
 import os
 import requests
 import time
 import warnings
-
-USE_UNSLOTH = os.environ.get("USE_UNSLOTH", False)
-
-if USE_UNSLOTH:
-    from unsloth import FastLanguageModel, PatchFastRL
 
 from accelerate.logging import get_logger
 from beartype import beartype
@@ -34,15 +27,14 @@ from trl import (
 )
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
-from instruction_generator import get_instruction_generator
-from rewards import (
+from steerability.instruction_generator import get_instruction_generator
+from steerability.rewards import (
     map_to_goalspace,
     REGISTRY,
 )
-from utils.train_config_dataclasses import (
+from steerability.utils.train_config_dataclasses import (
     SteerabilityProbeConfig,
     GoalspaceServerConfig,
-    UnslothLoraConfig,
     RewardConfig,
 )
 
@@ -99,7 +91,7 @@ def generate_instruction_columns(final_probe: pd.DataFrame, probe_config: Steera
                 'content': content,
             }]
         )
-    final_probe["model_name"] = model_name # ...I don't want to talk about this HACK
+    final_probe["model_name"] = model_name # so we can post-process reasoning traces via model_output_cleaner 
     return final_probe
 
 @beartype
@@ -287,38 +279,20 @@ if __name__ == '__main__':
     base_parser.add_argument("--config", required=True)
     base_args, *_ = base_parser.parse_known_args()
 
-    if USE_UNSLOTH:
-        parser = HfArgumentParser((
-            GRPOConfig,
-            ModelConfig,
-            SteerabilityProbeConfig,
-            GoalspaceServerConfig,
-            RewardConfig,
-            UnslothLoraConfig
-        ))
-        (
-            training_config,
-            model_config,
-            probe_config,
-            server_config,
-            reward_config,
-            unsloth_config, 
-        ) = parser.parse_yaml_file(base_args.config)
-    else:
-        parser = HfArgumentParser((
-            GRPOConfig,
-            ModelConfig,
-            SteerabilityProbeConfig,
-            GoalspaceServerConfig,
-            RewardConfig,
-        ))
-        (
-            training_config,
-            model_config,
-            probe_config,
-            server_config,
-            reward_config,
-        ) = parser.parse_yaml_file(base_args.config)
+    parser = HfArgumentParser((
+        GRPOConfig,
+        ModelConfig,
+        SteerabilityProbeConfig,
+        GoalspaceServerConfig,
+        RewardConfig,
+    ))
+    (
+        training_config,
+        model_config,
+        probe_config,
+        server_config,
+        reward_config,
+    ) = parser.parse_yaml_file(base_args.config)
 
     if os.path.exists(training_config.output_dir) and not training_config.overwrite_output_dir:
         raise ValueError(f"Output directory '{training_config.output_dir}' already exists. Set `overwrite_output_dir=True` to overwrite it.")
@@ -343,37 +317,13 @@ if __name__ == '__main__':
         print(*reward_config.steering_goals, sep="\n")
         print()
 
-    peft_config = get_peft_config(model_config) if not USE_UNSLOTH else None
-
-    if USE_UNSLOTH:
-        model_name = model_config.model_name_or_path 
-        if model_name.split("/")[0] != "unsloth":
-            warnings.warn("USE_UNSLOTH is True but an unsloth model was not passed to the config.")
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name = model_name,
-            max_seq_length=training_config.max_prompt_length + training_config.max_completion_length,
-            load_in_4bit=model_config.load_in_4bit, 
-            fast_inference=training_config.use_vllm, # Enable vLLM fast inference
-            max_lora_rank=model_config.lora_r,
-            gpu_memory_utilization=training_config.vllm_gpu_memory_utilization, # Reduce if out of memory
-            float8_kv_cache=unsloth_config.float8_kv_cache,
-        )
-        model = FastLanguageModel.get_peft_model(
-            model,
-            r=model_config.lora_r, 
-            target_modules=model_config.lora_target_modules,
-            lora_alpha=model_config.lora_alpha,
-            lora_dropout=model_config.lora_dropout,
-            use_gradient_checkpointing=unsloth_config.unsloth_grad_checkpointing, 
-            random_state=unsloth_config.unsloth_random_state,
-        )
-    else:
-        print(f"Loading {model_config.model_name_or_path} from revision {model_config.model_revision}")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_config.model_name_or_path,
-            revision=model_config.model_revision,
-        )   
-        tokenizer = get_tokenizer(model_config)
+    peft_config = get_peft_config(model_config)
+    print(f"Loading {model_config.model_name_or_path} from revision {model_config.model_revision}")
+    model = AutoModelForCausalLM.from_pretrained(
+        model_config.model_name_or_path,
+        revision=model_config.model_revision,
+    )   
+    tokenizer = get_tokenizer(model_config)
 
     trainer = GRPOTrainer(
         model=model,
@@ -406,6 +356,3 @@ if __name__ == '__main__':
         trainer.add_callback(callback)
     trainer.train() 
     trainer.save_model(training_config.output_dir)
-
-    if USE_UNSLOTH:
-        model.save_lora(os.path.join(training_config.output_dir, unsloth_config.lora_adapter_name))

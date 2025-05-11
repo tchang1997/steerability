@@ -1,11 +1,12 @@
+accelerate
 beartype==0.15.0
-convokit==3.0.0
 datasets==3.0.2
-detoxify==0.5.2
+deepspeed
 matplotlib==3.9.0
 nltk==3.9.1
 numpy==1.26.4
 pandas
+peft
 protobuf==5.29.3
 sammo==0.1.7
 scikit-learn==1.5.2
@@ -17,6 +18,6 @@ torch==2.5.1
 tqdm
 transformers
 ruamel.yaml==0.18.6
-vllm==0.8.1
+vllm==0.8.4
 wandb==0.19.6
 git+https://github.com/huggingface/trl.git@a325a0eec5b646f3f87a1284abbc9b9790a4e442

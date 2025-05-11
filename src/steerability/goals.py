@@ -1,44 +1,20 @@
 from abc import ABC, abstractmethod
 import atexit
 import base64
-import bisect
-from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
 
-try:
-    from convokit import PolitenessStrategies
-except ModuleNotFoundError as e:
-    print("Unable to import convokit:", e)
-
-try:
-    from detoxify import Detoxify
-except ModuleNotFoundError as e:
-    print("Unable to import detoxify:", e)
-
-try:
-    from empath import Empath
-except ImportError:
-    print("Unable to import empath.")
-
 from filelock import FileLock
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 import numpy as np
 import pandas as pd
 from pylats import lats
 import spacy
 from taaled import ld
 import textstat
-import torch
 from tqdm.auto import tqdm
-
-try:
-    from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
-except RuntimeError as e:
-    print("Failed to import transformers -- check torch version and torchvision compatibility", e)
-import warnings
 
 from beartype import beartype
 from beartype.typing import Callable, List
@@ -201,195 +177,6 @@ class GoalFactory:
     def get_registered_goals(cls):
         return cls._registry.keys()
 
-# =============================================================== #
-# GOAL UTILITY CLASSES (incl. multi-goal models)                  #
-# =============================================================== #
-
-class Model(ABC):
-    """
-        Utility class. On-demand model loading and calling.
-    """
-    def __init__(self, device: Optional[str] = None):
-        self.model = None
-        if device is None:
-            num_gpus = torch.cuda.device_count()
-            self.device = f"cuda:{num_gpus-1}" if torch.cuda.is_available() else "cpu" # ....we'll deal with this later
-        else:
-            self.device = device
-        warnings.filterwarnings('ignore', category=UserWarning, module='transformers')
-
-    @abstractmethod
-    def load(self, force_reload: Optional[bool] = False):
-        pass
-
-    @abstractmethod
-    def __call__(self, text: str):
-        pass
-
-    @beartype
-    def _rechunk(self, sent: str):
-        token_counts = []
-        words = sent.split()
-        for word in words:
-            if word in self.tokenizer_cache:
-                input_ids = self.tokenizer_cache[word]
-            else:
-                input_ids = self.model.tokenizer(word)["input_ids"]
-                self.tokenizer_cache[word] = input_ids
-            token_counts.append(len(input_ids))
-        
-        cumulative_token_counts = np.cumsum(token_counts)
-        limits = list(range(self.max_len, np.sum(token_counts) + self.max_len, self.max_len))
-
-        start_idx = 0
-        chunks = []
-        
-        for limit in limits:
-            idx = bisect.bisect_right(cumulative_token_counts, limit)  # No need for `-1`
-            if idx <= start_idx:  # Ensure at least one word is included
-                idx = min(start_idx + 1, len(words))
-            chunk = " ".join(words[start_idx:idx])
-            chunks.append(chunk)
-            start_idx = idx  # Move start index forward
-
-            if start_idx >= len(words):  # Stop if all words are covered
-                break
-
-        return chunks
-
-
-class SentimentClassifier(Model):
-    CHINESE_PATTERN = re.compile(r"[\u4E00-\u9FFF]")
-
-    @beartype
-    def load(self, force_reload: Optional[bool] = False):
-        if self.model is None or force_reload:
-            print(f"Loading sentiment classifier onto device {self.device}...")
-            model_tag = "j-hartmann/emotion-english-distilroberta-base"
-            model = AutoModelForSequenceClassification.from_pretrained("j-hartmann/emotion-english-distilroberta-base")
-            # model = torch.compile(model)
-            self.tokenizer = AutoTokenizer.from_pretrained(model_tag) # keep this for internal length checks later
-            model_pipeline = pipeline("text-classification", model=model, tokenizer=self.tokenizer, device=self.device) # this'll spit out some warning, which we can ignore :D
-            #model_pipeline = pipeline("text-classification", model=model_tag, return_all_scores=True, device=self.device)
-            self.model = model_pipeline
-            self.max_len = self.model.tokenizer.model_max_length - self.model.tokenizer.num_special_tokens_to_add()
-            print("Loading completed!")
-        self.tokenizer_cache = {} # for rechunking only
-        return self.model
-
-    @beartype
-    def maybe_remove_chinese(self, text: str): # this happens in some models and really messes up the classifier -- just drop 
-        if not self.CHINESE_PATTERN.search(text):  
-            return text
-        print("Warning: Chinese characters detected. Removing to avoid tokenization issues. This may result in inaccurate results.")
-        return self.CHINESE_PATTERN.sub("", text)
-    
-    @beartype
-    def __call__(self, text: str):        
-        text = self.maybe_remove_chinese(text)
-        sentences = sent_tokenize(text) # this model is trained at the sentence/utterance level, so break it up this way
-        sentiment_by_sentences = []
-        for sent in sentences: # TODO: pre-process sentences via length-check, then batch inference?
-            sent = sent.strip()
-
-            est_sentence_length = len(self.model.tokenizer(sent)["input_ids"]) # BOS, EOS
-            if est_sentence_length > self.max_len: 
-                print(f"Extra-long sentence detected (len: {est_sentence_length}), which exceeds model maximum length of {self.max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
-                
-                chunks = self._rechunk(sent)
-                for chunk in chunks:
-                    n_tokens = len(self.model.tokenizer(chunk)["input_ids"])
-                    if n_tokens > self.max_len:
-                        warnings.warn(f"Chunk still exceeds maximum length ({n_tokens} > {self.max_len}). Please raise an issue; the `_rechunk` method likely needs to be redesigned. Full chunk:\n{chunk}")
-                        chunk_results = [
-                            {'label': 'surprise', 'score': -1.}, 
-                            {'label': 'anger', 'score': -1.}, 
-                            {'label': 'neutral', 'score': -1.}, 
-                            {'label': 'disgust', 'score': -1.}, 
-                            {'label': 'sadness', 'score': -1.}, 
-                            {'label': 'fear', 'score': -1.}, 
-                            {'label': 'joy', 'score': -1.}
-                        ]
-                        sentiment_by_sentences.append(pd.DataFrame(chunk_results))
-                        continue
-                    with torch.no_grad():
-                        print("Tokens in chunk:", n_tokens)
-                        chunk_results = self.model(chunk, top_k=None)
-                    print(chunk_results)
-                    sentiment_by_sentences.append(pd.DataFrame(chunk_results))
-            else: # proceed normally
-                with torch.no_grad():
-                    sent_results = self.model(sent, top_k=None) 
-                sentiment_by_sentences.append(pd.DataFrame(sent_results))
-
-        if len(sentences) > len(sentiment_by_sentences): # if <, then chunking was used
-            print(f"Not all sentences were converted successfully ({len(sentiment_by_sentences)}/{len(sentences)}). Consider double-checking this data point.")
-        emotion_df = pd.concat(sentiment_by_sentences, keys=range(len(sentiment_by_sentences)))
-        return emotion_df.groupby('label').mean()
-
-
-class DetoxifyModel(Model):
-    @beartype
-    def load(self, force_reload: Optional[bool] = False):
-        if self.model is None or force_reload:
-            print("Loading toxicity classifier...")
-            self.model = Detoxify('original', device=self.device)
-            self.max_len = self.model.tokenizer.model_max_length - self.model.tokenizer.num_special_tokens_to_add()
-        self.tokenizer_cache = {} # for rechunking only
-        return self.model
-
-    @beartype
-    def __call__(self, text: str):
-        sentences = sent_tokenize(text)
-        toxicity_by_sent = []
-        for sent in sentences:
-            input_length = len(self.model.tokenizer(sent)["input_ids"])
-            max_len = self.model.tokenizer.model_max_length
-            if input_length <= max_len:
-                toxicity = self.model.predict(sent)
-                toxicity_by_sent.append(toxicity)
-            else:
-                print(f"Extra-long sentence detected (len: {input_length}), which exceeds model maximum length of {max_len}. Chunking sentence using the tokenizer. Note that this is expensive since the model tokenizer does not produce a one-to-one mapping of words to embeddings, and should be avoided when possible.")      
-                    
-
-                chunks = self._rechunk(sent)
-                for chunk in chunks:
-                    toxicity = self.model.predict(chunk)
-                    toxicity_by_sent.append(toxicity)
-        return pd.DataFrame(toxicity_by_sent).mean(axis=0)
-
-
-
-class MultiGoalCache(object):
-    """
-        Utility class to lazy-load models and reduce function calls. This is really just a wrapper
-        class around some pre-trained model, backed by an LRU cache. 
-
-	Individual goals for one steerability evaluation should point to the same ModelBasedMultiGoal object, 
-        which is equivalent to sharing a model and goal-space mapping cache.
-    """
-    @beartype
-    def __init__(self, model: Model, max_cache_size: Optional[int] = 2048):
-        self.max_cache_size = max_cache_size
-        self.model = model
-        self.cache = OrderedDict()  # Custom cache
- 
-    def __call__(self, text: str):
-        if text in self.cache:
-            self.cache.move_to_end(text)
-            return self.cache[text]
-
-        self.model.load() 
-        result = self.model(text)
-        
-        if len(self.cache) >= self.max_cache_size:
-            self.cache.popitem(last=False) 
-        
-        self.cache[text] = result
-        return result # the individual goal functions should then post-process this model output
-
-SENTIMENT_CACHE = MultiGoalCache(SentimentClassifier())
-DETOXIFY_CACHE = MultiGoalCache(DetoxifyModel())
 
 # =============================================================== #
 # GOALS                                                           #
@@ -401,94 +188,6 @@ class ReadingDifficulty(Goal):
     @beartype
     def __call__(self, text: str):
         return textstat.flesch_kincaid_grade(text)
-
-
-@GoalFactory.register_goal("politeness")
-class Politeness(Goal):
-    _spacy_model = None  
-    _politeness_model = None
-    _politeness_weights = pd.DataFrame([{ # copied from Table 3, "A computational approach to politeness" (Danescu-Niculescu-Mizil 2012)
-        'feature_politeness_==Please==': 0.49,
-        'feature_politeness_==Please_start==': -0.30,
-        'feature_politeness_==HASHEDGE==': 0.0, # too general -- not in Table 3
-        'feature_politeness_==Indirect_(btw)==': 0.63,
-        'feature_politeness_==Hedges==': 0.14,
-        'feature_politeness_==Factuality==': -0.38,
-        'feature_politeness_==Deference==': 0.78,
-        'feature_politeness_==Gratitude==': 0.87,
-        'feature_politeness_==Apologizing==': 0.36,
-        'feature_politeness_==1st_person_pl.==': 0.08,
-        'feature_politeness_==1st_person==': 0.08,
-        'feature_politeness_==1st_person_start==': 0.12,
-        'feature_politeness_==2nd_person==': 0.05,
-        'feature_politeness_==2nd_person_start==': -0.30,
-        'feature_politeness_==Indirect_(greeting)==': 0.43,
-        'feature_politeness_==Direct_question==': -0.27,
-        'feature_politeness_==Direct_start==': -0.43,
-        'feature_politeness_==HASPOSITIVE==': 0.12,
-        'feature_politeness_==HASNEGATIVE==': -0.13,
-        'feature_politeness_==SUBJUNCTIVE==': 0.47,
-        'feature_politeness_==INDICATIVE==': 0.09,
-    }])
-
-    @classmethod
-    def get_politeness_model(cls):
-        if cls._politeness_model is None:
-            cls._politeness_model = PolitenessStrategies(verbose=1000)
-        return cls._politeness_model
-
-    @classmethod
-    def get_spacy_model(cls):
-        if cls._spacy_model is None:
-            cls._spacy_model = spacy.load("en_core_web_sm")
-        return cls._spacy_model 
-
-    @beartype
-    def __call__(self, text: str):
-        sentences = sent_tokenize(text)
-        politeness_model = self.get_politeness_model()
-        politeness_df = pd.DataFrame([politeness_model.transform_utterance(sent, spacy_nlp=self.get_spacy_model()).meta["politeness_strategies"] for sent in sentences])  # TODO: handle empty strings as edge cases
-        return (politeness_df.mean(axis=0) @ self._politeness_weights.T).item()
-
-class HFSentiment(Goal):
-    def __init__(self, goal_model_cache: MultiGoalCache, sentiment_name: str):
-        self.goal_model_cache = goal_model_cache
-        self.sentiment_name = sentiment_name
-
-    @beartype
-    def __call__(self, text: str):
-        return self.goal_model_cache(text).loc[self.sentiment_name].item() # D.R.Y.
-
-
-@GoalFactory.register_goal("anger", goal_model_cache=SENTIMENT_CACHE)
-class Anger(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "anger")
-
-@GoalFactory.register_goal("disgust", goal_model_cache=SENTIMENT_CACHE)
-class Disgust(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "disgust")
-
-@GoalFactory.register_goal("fear", goal_model_cache=SENTIMENT_CACHE)
-class Fear(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "fear")
-
-@GoalFactory.register_goal("joy", goal_model_cache=SENTIMENT_CACHE)
-class Joy(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "joy")
-
-@GoalFactory.register_goal("sadness", goal_model_cache=SENTIMENT_CACHE)
-class Sadness(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "sadness")
-
-@GoalFactory.register_goal("surprise", goal_model_cache=SENTIMENT_CACHE)
-class Surprise(HFSentiment):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "surprise")
 
 @GoalFactory.register_goal("textual_diversity")
 class TextualDiversity(Goal):
@@ -507,24 +206,6 @@ class TextLength(Goal):
     def __call__(self, text: str):
         return len(word_tokenize(text))
     
-@GoalFactory.register_goal("positive_emotion")
-class PositiveEmotion(Goal):
-    # From Empath; Fast et al., (2016). We anchor to positive_emotion since it is also in LIWC (Pennebaker et al., '01).
-    _empath_engine = None
-    _empath_pos_categories = ["positive_emotion"] # could consider adding "optimism" or "achievement" later
-
-    @classmethod
-    def get_empath_engine(cls):
-        if cls._empath_engine is None:
-            cls._empath_engine = Empath()
-        return cls._empath_engine
-
-    @beartype
-    def __call__(self, text: str):
-        engine = self.get_empath_engine()
-        result = engine.analyze(text, categories=self._empath_pos_categories, normalize=True)
-        return np.array([result[cat] for cat in self._empath_pos_categories]).mean()
-
 @GoalFactory.register_goal("formality")
 class Formality(Goal):
     # via the Heylighen-Dewaele score 
@@ -573,67 +254,11 @@ class Formality(Goal):
         return F
 
 
-class DetoxifyAspect(Goal):
-    def __init__(self, goal_model_cache: MultiGoalCache, aspect_name: str):
-        self.goal_model_cache = goal_model_cache
-        self.aspect_name = aspect_name
-
-    @beartype
-    def __call__(self, text: str):
-        return self.goal_model_cache(text).loc[self.aspect_name]
-
-
-@GoalFactory.register_goal("toxicity", goal_model_cache=DETOXIFY_CACHE)
-class Toxicity(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "toxicity")
-
-@GoalFactory.register_goal("severe_toxicity", goal_model_cache=DETOXIFY_CACHE)
-class SevereToxicity(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "severe_toxicity")
-
-@GoalFactory.register_goal("obscene", goal_model_cache=DETOXIFY_CACHE)
-class Obscene(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "obscene")
-
-@GoalFactory.register_goal("threat", goal_model_cache=DETOXIFY_CACHE)
-class Threat(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "threat")
-
-@GoalFactory.register_goal("insult", goal_model_cache=DETOXIFY_CACHE)
-class Insult(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "insult")
-
-@GoalFactory.register_goal("identity_attack", goal_model_cache=DETOXIFY_CACHE)
-class IdentityAttack(DetoxifyAspect):
-    def __init__(self, goal_model_cache: MultiGoalCache):
-        super().__init__(goal_model_cache, "identity_attack")
-
 DEFAULT_GOALS = [
     GoalFactory.get_default("reading_difficulty"),
-    #GoalFactory.get_default("politeness"),
-    #GoalFactory.get_default("anger"),
-    #GoalFactory.get_default("disgust"),
-    #GoalFactory.get_default("fear"),
-    #GoalFactory.get_default("joy"),
-    #GoalFactory.get_default("sadness"),
-    #GoalFactory.get_default("surprise"),
     GoalFactory.get_default("textual_diversity"),
     GoalFactory.get_default("text_length"),
-    #GoalFactory.get_default("positive_emotion"),
     GoalFactory.get_default("formality"),
 ]
-TOXICITY_GOALS = [
-    GoalFactory.get_default("toxicity"),
-    GoalFactory.get_default("severe_toxicity"),
-    GoalFactory.get_default("obscene"), 
-    GoalFactory.get_default("threat"),
-    GoalFactory.get_default("insult"),
-    GoalFactory.get_default("identity_attack"),
-]
-ALL_GOALS = DEFAULT_GOALS + TOXICITY_GOALS
+ALL_GOALS = DEFAULT_GOALS # in case, in the future we want to add more types of goals (e.g., STYLE_GOALS, UNSAFE_GOALS)
 

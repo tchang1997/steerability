@@ -35,7 +35,6 @@ def maybe_truncate(s: str, tokenizer: AutoTokenizer) -> str:
         return "<nan>" # dummy null response
     input_ids = tokenizer.encode(s, truncation=True, max_length=MAX_RESPONSE_LENGTH_FOR_JUDGE)
     if len(input_ids) == MAX_RESPONSE_LENGTH_FOR_JUDGE:
-        #print(f"Truncated overlong response:", s[:1000] + "...") -- don't clutter up stdout now
         return tokenizer.decode(input_ids, skip_special_tokens=True)
     else:
         return s
@@ -129,7 +128,7 @@ def judge(problem_set: pd.DataFrame, chat_instance: VLLMOpenAIChat) -> pd.DataFr
     for raw_resp in outputs.outputs.llm_responses: 
         try:
             iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
-            for resp in iter_obj: # do we need [0]?
+            for resp in iter_obj: 
                 clean_resp = clean_model_output(chat_instance._model_id, resp) # by default, only return one response
                 raw_output.append(resp)
                 final_output.append(clean_resp)
@@ -198,7 +197,6 @@ def parse_and_score(pset_with_answers: pd.DataFrame) -> pd.DataFrame:
         if nan_mask.sum() > 0:
             print(f"Unrecoverable parse error resulted in {nan_mask.sum()} NaN(s) for attribute {attr}.")
         tau, p = kendalltau(judge_answers[~nan_mask], correct_answers[~nan_mask])
-        #print(f"Kendall's tau ({attr}):", tau)
         results[attr] = {"tau": tau, "p": p, "n": (~nan_mask).sum()}
     return df, results
 
@@ -242,7 +240,7 @@ if __name__ == '__main__':
         source_goal_prefix=args.source_goal_prefix,
         response_goal_prefix=args.response_goal_prefix,
     )
-    chat_instance = initialize_chat_instance(args.vllm_port, api_config=VLLM_API_CONFIG) # in the future, pass more args dynamically
+    chat_instance = initialize_chat_instance(args.vllm_port, api_config=VLLM_API_CONFIG) 
     pset_answered = judge(pset, chat_instance)
     df, results = parse_and_score(pset_answered)
 
@@ -255,7 +253,6 @@ if __name__ == '__main__':
         tau, p, n = stats["tau"], stats["p"], stats["n"]
         table.add_row(f"{attr} (N={n})", f"{tau:.4f}", f"{p:.4f}")
 
-    # Print it
     console = Console()
     console.print(table)
 

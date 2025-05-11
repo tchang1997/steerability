@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import pandas as pd
 from ruamel.yaml import YAML
 
-from generate_steerability_probe import generate_deltas
+from steerability.generate_steerability_probe import generate_deltas
 
 yaml = YAML(typ='safe')
 

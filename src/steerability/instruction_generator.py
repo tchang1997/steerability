@@ -19,14 +19,9 @@ from typing import Any, Optional
 """
 NO_EXPLAIN = " Respond with only the rewritten text and do not explain your response."
 DISAMBIG = " You MUST not change anything else about the other parts of the text, even if it makes the rewritten text sound unnatural or otherwise awkward."
-# " You must keep the tone of the text and other aspects of the text the same as the original unless explicitly instructed otherwise."
-#MORE_ADJ_PHRASES = ["harder to read", "more polite", "angrier", "sound more disgusted", "more fearful-sounding", "happier", "sadder", "sound more surprised", "use more diverse language", "more verbose"]
-#LESS_ADJ_PHRASES = ["easier to read", "more rude", "less angry", "sound less disgusted", "less fearful-sounding", "less happy", "less sad", "sound less surprised", "use less diverse language", "more concise"]
-#GOAL_INDEX = ["reading_difficulty", "politeness", "anger", "disgust", "fear", "joy", "sadness", "surprise", "textual_diversity", "text_length"]
-
-MORE_ADJ_PHRASES = ["harder to read", "more polite", "use more diverse language", "longer", "more positive", "more formal"]
-LESS_ADJ_PHRASES = ["easier to read", "less polite", "use less diverse language", "shorter", "less positive", "more informal"]
-GOAL_INDEX = ["reading_difficulty", "politeness", "textual_diversity", "text_length", "positive_emotion", "formality"]
+MORE_ADJ_PHRASES = ["harder to read", "use more diverse language", "longer", "more formal"]
+LESS_ADJ_PHRASES = ["easier to read", "use less diverse language", "shorter", "more informal"]
+GOAL_INDEX = ["reading_difficulty", "textual_diversity", "text_length", "formality"]
 
 DEEPSEEK_SOMETIMES_SECTION_BREAK = "\n---\n\n"
 
@@ -38,14 +33,10 @@ def get_instruction_generator(prompt_strategy: str, database: Optional[Any] = No
         inst_generator = DirectUnderspecifiedInstruction()
     elif prompt_strategy == "direct+inst": # bootstrap CoT instructions + sample
         inst_generator = DirectGroundedInstruction(database, **prompter_kwargs)
-    elif prompt_strategy == "one_to_ten":
-        inst_generator = DirectGranularTemplateInstruction()
     elif prompt_strategy == "instruct":
         inst_generator = InstructionOnly(database, **prompter_kwargs) 
     elif prompt_strategy == "cot": 
         inst_generator = DirectCoTInstruction()
-    elif prompt_strategy == "goal_enum":
-       inst_generator = GoalEnumeratedHyperSpecificInstruction()
     else:
         raise ValueError(f"{prompt_strategy} is not an implemented instruction generator.")
     return inst_generator
@@ -164,88 +155,6 @@ class DirectTemplateInstruction(InstructionGenerator):
 
             instructions.append(instruction)
         return instructions
-    
-      
-    
-
-# METRIC_NOUN_PHRASES = [
-#     "reading level",
-#     "politeness",
-#     "anger",
-#     "disgust",
-#     "fear",
-#     "joy",
-#     "sadness",
-#     "surprise",
-#     "diversity of the text",
-#     "verbosity of the text"
-# ]
-METRIC_NOUN_PHRASES = [
-    "reading difficulty", "politeness", "textual diversity", "length of the text", "positive emotion", "formality"
-]
-
-class DirectGranularTemplateInstruction(InstructionGenerator):
-    def __init__(self, database: Optional[pd.DataFrame] = None):
-        super().__init__(database)
-        self.base_text = "Please rewrite the following. Assume that each aspect of the text lies on a 10 point scale, where 1 represents the lowest possible level of that aspect, while 10 represents the highest possible level. Adjust the given aspects as follows:\n"
-        self.metric_names = np.array(METRIC_NOUN_PHRASES)
-
-    def sample_prompt(self, deltas: np.ndarray, targets: Optional[np.ndarray] = None, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
-        instructions = []
-        goal_names = deltas.columns.str.replace("delta_", "")
-        delta_arr = np.ma.array(deltas.values, mask=(deltas.values == 0) | np.isnan(deltas.values)) # mask = invalid value; i.e., goal is inactive
-
-        metric_phrases_in_use = []
-        for goal in goal_names:
-            try:
-                goal_idx = GOAL_INDEX.index(goal)
-                metric_phrases_in_use.append(self.metric_names[goal_idx])
-            except ValueError:
-                raise ValueError(f"Goal {goal} not supported. Valid goals: {GOAL_INDEX}")
-
-        masked_goal_array = np.ma.array(
-                np.repeat(np.array(metric_phrases_in_use)[None, :], len(delta_arr), axis=0),
-                mask=delta_arr.mask
-            )
-
-        for i in range(len(deltas)):
-            intents = []
-            for intent, val in zip(masked_goal_array[i].compressed(), delta_arr[i].compressed()):
-                intent_str = None
-                if val < 0:
-                    intent_str = f"\t- Decrease "
-                elif val > 0:
-                    intent_str = f"\t- Increase "
-                if intent_str is not None:
-                    if "of the" in intent_str:
-                        intent_str += f"the {intent} by "
-                    else:
-                        intent_str += f"the level of {intent} by "
-                    n_levels = int(np.round(np.abs(val) * 10, 0))
-                    intent_str += f"{n_levels} levels."
-                    intents.append(intent_str)
-            np.random.shuffle(intents)
-            intent_list = "\n".join(intents)
-            instruction = self.base_text + intent_list + "\n\n"
-            if disambig:
-                instruction += DISAMBIG
-            if no_explain:
-                instruction += NO_EXPLAIN # prompt hack :/
-            instructions.append(instruction)
-
-        return instructions
-    
-class NullInstruction(InstructionGenerator):
-    def __init__(self, database: Optional[pd.DataFrame] = None):
-        super().__init__(database) 
-
-    def sample_prompt(self, deltas: np.ndarray, targets: np.ndarray, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
-        instructions = ["Please rewrite the following."] * len(deltas)
-        if disambig:
-            instructions = [inst + DISAMBIG for inst in instructions]
-        if no_explain:
-            instructions = [inst + NO_EXPLAIN for inst in instructions]
-        return instructions
 
 class DirectUnderspecifiedInstruction(InstructionGenerator):
     def __init__(self, database: Optional[pd.DataFrame] = None):
@@ -300,70 +209,13 @@ class DirectCoTInstruction(DirectTemplateInstruction):
             print("Original: (ending previvew:", "..." + resp[-500:])
             return resp
         return "\n".join(final_lines).strip()
-    
-class GoalEnumeratedHyperSpecificInstruction(DirectTemplateInstruction):
-    def __init__(self, database: Optional[pd.DataFrame] = None):
-        super().__init__(database)
-
-    def sample_prompt(
-            self,
-            deltas: np.ndarray,
-            targets: Optional[np.ndarray] = None,
-            no_explain: Optional[bool] = False,
-            disambig: Optional[bool] = False,
-            perm_seed: Optional[int] = 42,
-        ):
-        starting_prompt = super().sample_prompt(deltas, targets, no_explain=no_explain, disambig=disambig) # do I do feedback as a switch since it's a static string, or do the step-by-step as a static string?
-        final_prompts = []
-        goal_names = deltas.columns.str.removeprefix("delta_")
-        np.random.seed(perm_seed)
-
-        target_likert = (10 * targets).round().astype(int)
-        source_likert = (10 * (targets - deltas.fillna(0).values)).round().astype(int)
-        for i, prompt in enumerate(starting_prompt):
-            inactive_goal_mask = deltas.iloc[i].isna()
-            active_goal_mask = ~inactive_goal_mask
-            active_goal_names = goal_names[active_goal_mask][np.random.permutation(active_goal_mask.sum())]
-            inactive_goal_names = goal_names[inactive_goal_mask][np.random.permutation(inactive_goal_mask.sum())]
-
-            example_prompt = prompt
-            example_prompt += (
-                " You MUST not change anything else about the other parts of the text, "
-                "even if it makes the rewritten text sound unnatural or otherwise awkward.\n\n"
-            )
-            example_prompt += (
-                "Specifically, you are being graded on your ability to preserve these aspects. "
-                "I've provided a scale from zero to ten for reference.\n"
-            )
-            for goal in inactive_goal_names:
-                goal_corrected = goal.replace("_", " ").capitalize()
-                goal_likert = target_likert.iloc[i][f"target_{goal}"]
-                example_prompt += f"* {goal_corrected}: (currently: {goal_likert}/10) \n"
-
-            example_prompt += "\nYou are also being graded on your ability to modify these aspects:\n"
-            for goal in active_goal_names:
-                goal_corrected = goal.replace("_", " ").capitalize()
-                goal_likert = target_likert.iloc[i][f"target_{goal}"]
-                starting_goal_likert = source_likert.iloc[i][f"target_{goal}"]
-
-                example_prompt += f"* {goal_corrected}: (currently: {starting_goal_likert}/10; needs to be {goal_likert}/10) \n"
-
-            example_prompt += (
-                "\nThink step-by-step about how to keep each of these aspects the same, "
-                "or change them exactly as desired. Historically, you have tended to impose a moderating "
-                "effect on text without being asked, and changed things like the textual "
-                "diversity/length without being asked. Assume that if it is not explicitly mentioned in "
-                "the prompt, you MUST not modify that aspect of text."
-            )
-            final_prompts.append(f"## Instructions\n\n{example_prompt}\n\n## Text to rewrite")
-        return final_prompts
 
 
 class InstructionSamplingMixin:
     def add_instructions_to_prompt(self, prompts: List[str], deltas, max_instructions_per_prompt: int, no_explain: Optional[bool] = False, disambig: Optional[bool] = False):
         final_prompts = []
         line_prefix = "\n\t- "
-        for (row, delta), prompt in zip(deltas.iterrows(), prompts):
+        for (_, delta), prompt in zip(deltas.iterrows(), prompts):
             deltas_to_key = tuple([f"{col}_{delta[col]}" for col in delta.index])
             curr_options = self.database[deltas_to_key]
             K = min(max_instructions_per_prompt, len(curr_options))
@@ -377,7 +229,18 @@ class InstructionSamplingMixin:
             final_prompts.append(prompt_str)
 
         return final_prompts
+    
+class NullInstruction(InstructionGenerator):
+    def __init__(self, database: Optional[pd.DataFrame] = None):
+        super().__init__(database) 
 
+    def sample_prompt(self, deltas: np.ndarray, targets: np.ndarray, no_explain: Optional[bool] = True, disambig: Optional[bool] = False):
+        instructions = ["Please rewrite the following."] * len(deltas)
+        if disambig:
+            instructions = [inst + DISAMBIG for inst in instructions]
+        if no_explain:
+            instructions = [inst + NO_EXPLAIN for inst in instructions]
+        return instructions
 
 class InstructionOnly(NullInstruction, InstructionSamplingMixin):
     def __init__(self, database: Optional[pd.DataFrame] = None, n_instructions: Optional[int] = 3, seed: Optional[int] = 42):

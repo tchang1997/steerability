@@ -27,8 +27,6 @@ yaml = YAML(typ="safe")
 
     In theory we can save the training dataset CSVs and do a string-by-string check but this procedure makes sure that our 
     exclusion logic exactly matches the training probe generation code. 
-
-    Note: worst case, if there's too many, we can go back to the seed texts and re-generate a few.
 """
 
 def get_train_eligible_ids(config: str) -> set:
