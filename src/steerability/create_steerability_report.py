@@ -26,7 +26,6 @@ def get_args():
     psr = ArgumentParser()
     psr.add_argument("--config", required=True, type=str, help="YAML configuration file.")
     psr.add_argument("--api-config", required=True, type=str, help="File storing API key.")
-    #psr.add_argument("--inst-database", type=str, help="Auxiliary data file for advanced instructions (e.g., CoT grounded in specific examples)")
     psr.add_argument("--seed-data", type=str, help="Seed data used for steerability probe for normalization.", default="./data/v2_seed_data_goalspace_mapped.csv")
     psr.add_argument("--nrows", type=int, help="Number of rows of the steerability probe to read. Useful for debugging.")
     psr.add_argument("--overwrite", action="store_true")
@@ -68,7 +67,7 @@ if __name__ == '__main__':
         async_mode=args.async_mode,
         **llm_cfg.get("other_kwargs", {}),
     )
-    delta_goals = probe.filter(like='delta_', axis=1) # This is heavily reliant on how the probe is implemented at an earlier stage -- target for further refactor
+    delta_goals = probe.filter(like='delta_', axis=1) 
     target_goals = probe.filter(like='target_', axis=1)
     source_goals = probe.filter(like="source_", axis=1)
 
@@ -78,13 +77,13 @@ if __name__ == '__main__':
         target_corrected_goals[target_col] = target_goals[target_col].fillna(source_goals[source_col])
 
     print("Writing prompts...")
-    prompts = llm.write_prompts(delta_goals, target_corrected_goals, **cfg.get("inst_addons", {})) # currently, none of the implemented prompting strategies use "target_goals" but maybe just generate this w/o the weird pd.where in future probes
+    prompts = llm.write_prompts(delta_goals, target_corrected_goals, **cfg.get("inst_addons", {})) 
     print("EXAMPLE PROMPT:")
     print("---", prompts[0], "---", "\n", sep="\n")
 
     print("Evaluating steerability...")
     print("Pinging endpoint:", llm.url_endpoint)
-    outputs = llm.generate_steerability_data(probe, prompts, seed_data) # seed_data for normalization only -- refactor someday?
+    outputs = llm.generate_steerability_data(probe, prompts, seed_data) 
 
     result_dir = os.path.dirname(result_path)
     if not os.path.isdir(result_dir):

@@ -12,9 +12,3 @@ textual_diversity:
 text_length: 
   min: 78.
   max: 1509.
-politeness:
-  min: -0.13
-  max: 0.134307
-positive_emotion:
-  min: 0.
-  mas: 0.016860

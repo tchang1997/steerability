@@ -16,7 +16,6 @@ def get_dynamic_cutpoints(start_vector, cut_points=DIRECT_PROMPT_CUT_POINTS):
     return np.clip(start_vector[..., None] + cut_points[None, None, :], 0, 1)
 
 def scalar_rejection(a, b): # b onto a
-    #return np.sqrt(np.linalg.norm(b, axis=1) ** 2 - (np.sum(a * b, axis=1) / (np.linalg.norm(a, axis=1) + 1e-8)) ** 2)
     b_norm = np.sum(b * b, axis=1).values + 1e-8
     proj = (np.sum(a * b, axis=1) / b_norm).values.reshape(-1, 1) * b  # shape [n, d]
     rejection_vec = a - proj

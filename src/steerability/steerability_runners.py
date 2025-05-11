@@ -24,7 +24,6 @@ def launch_steerability_eval(
         uvicorn_cfg: dict[str, Any],
     ):
     prompt_strategy = cfg["prompt_strategy"]
-    # logger.info(f"Using prompt strategy `{prompt_strategy}`")
 
     database = None
     if "instruction_path" in cfg:
