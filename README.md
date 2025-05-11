@@ -1,4 +1,4 @@
-# Steerability Measurement 
+# Measuring the Steerability of Large Language Models
 
 This is the official repo for measuring steerability in LLMs. 
 
