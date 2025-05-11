@@ -59,33 +59,37 @@ function initializePlot() {
     drawAxes();  // gridlines, ticks, axis labels
 }
 
-function getJetColor(normMag) {
-  normMag = constrain(normMag, 0, 1);
-  colorMode(HSB, 360, 100, 100, 100);
 
-  let hue, sat = 100, bright;
+let flowColors = [];
 
-  if (normMag < 0.15) {
-    // Cerulean → Indigo
-    hue = map(normMag, 0, 0.15, 200, 240);
-    bright = map(normMag, 0, 0.15, 70, 85);
-  } else if (normMag < 0.5) {
-    // Indigo → Magenta
-    hue = map(normMag, 0.15, 0.5, 240, 320);
-    bright = map(normMag, 0.15, 0.5, 85, 95);
-  } else if (normMag < 0.85) {
-    // Magenta → Hot Pink
-    hue = map(normMag, 0.5, 0.85, 320, 340);
-    bright = map(normMag, 0.5, 0.85, 95, 100);
-  } else {
-    // Hot Pink → Slight Red
-    hue = map(normMag, 0.85, 1.0, 340, 350);
-    bright = 100;
+function setup() {
+  createCanvas(800, 800); // or whatever
+  noLoop(); // optional: remove if animating
+
+  //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
+  const stops = [  
+    { stop: 0.0, color: lerpColor(color("#00C5F8"), color("#000000"), 0.2)}, // Faded sea-cyan
+    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.2)}, // Cerulean
+    { stop: 0.25, color: "#4605EC" }, // Indigo
+    { stop: 0.5, color: "#8705E4" }, // Purple
+    { stop: 0.8, color: "#FF06C1" }, // Hot Pink
+    { stop: 1.0, color: "#FF3366" }  // Red-ish Pink
+  ];
+
+  for (let i = 0; i <= 100; i++) {
+    let normMag = i / 100.0;
+    flowColors[i] = getColorFromStops(normMag, stops);
   }
+}
 
-  const col = color(hue % 360, sat, bright, 100);
-  colorMode(RGB, 255);
-  return col;
+function getColorFromStops(normMag, stops) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (normMag >= stops[i].stop && normMag <= stops[i + 1].stop) {
+      const t = map(normMag, stops[i].stop, stops[i + 1].stop, 0, 1);
+      return lerpColor(color(stops[i].color), color(stops[i + 1].color), t);
+    }
+  }
+  return color(stops[stops.length - 1].color);
 }
 
 
@@ -132,30 +136,7 @@ function draw() {
           ellipse(px, py, 4, 4);
         }
       }
-
-    //   for (let p of particles) {
-    //     p.t += 0.01;
-    //     const baseTravel = 0.1
-    //     const travel = baseTravel * p.mag / maxMag;  // longer streaks for faster flow     
-    //     const progress = p.t % 1;
-
-    //     const base_x = p.x0 - 0.5 * travel * p.u;
-    //     const base_y = p.y0 - 0.5 * travel * p.v;
-
-    //     const x = base_x + travel * p.u * progress;
-    //     const y = base_y + travel * p.v * progress;
-
-    //     if (x < 0 || x > 1 || y < 0 || y > 1) continue;
-
-    //     const px = map(x, 0, 1, paddingLeft, width - paddingRight);
-    //     const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
-
-    //     const col = getJetColor(p.mag / maxMag);
-    //     fill(col);
-    //     noStroke();
-    //     ellipse(px, py, 2.5, 2.5);
-        
-    // }
+      
     const travel = 0.1;
     for (let p of particles) {
       // Advance the particle's phase
@@ -178,12 +159,13 @@ function draw() {
         const px = map(x, 0, 1, paddingLeft, width - paddingRight);
         const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
 
-        const baseColor = getJetColor(p.mag / maxMag);
+        let idx = Math.floor(p.mag / maxMag * 100);
+        const baseColor = flowColors[idx]
         baseColor.setAlpha(alpha * 255);
 
         fill(baseColor);
         noStroke();
-        ellipse(px, py, 3, 3);
+        ellipse(px, py, 2, 2);
       }
     }
 

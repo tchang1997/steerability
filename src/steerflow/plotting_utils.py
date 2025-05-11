@@ -23,7 +23,7 @@ def grab_subspace(df, *args, unspecified=True, specified_first=False, steering_g
     final.columns = ["x1", "x2", "dx1", "dx2", "dx1_ideal", "dx2_ideal"]
     return final
 
-def export_vector_field(subspace, xcol, ycol, mode="movement", output_path="static/_field.json", flow_granularity=65, interp_method="cubic"):
+def export_vector_field(subspace, xcol, ycol, mode="movement", output_path="static/_field.json", flow_granularity=128, interp_method="cubic"):
     x1, x2 = subspace["x1"], subspace["x2"]
 
     if mode == "movement":
