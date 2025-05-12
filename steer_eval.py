@@ -37,7 +37,7 @@ def get_args():
     
     psr.add_argument("--redo-inference", action="store_true", help="Whether to redo inference. Will also redo LLM-as-judge.")
     psr.add_argument("--redo-judge", action="store_true", help="Whether to redo LLM-as-judge.")
-    
+    psr.add_argument("--skip-interactive", action="store_true", help="Skip interactive review of LLM-as-judge reasoning; i.e., defer completely to the LLM's choice. We recommend leaving this flag unset.")
     args = psr.parse_args()
     return args
 
@@ -63,12 +63,12 @@ def run_eval_phase(result_path, probe, api_config, cfg, vllm_cfg, uvicorn_cfg, r
                 raise exception
     return raw_probe
 
-def run_judge_phase(judged_path, judge_cfg, probe, api_config, redo):
+def run_judge_phase(judged_path, judge_cfg, probe, api_config, redo, skip_interactive=False):
     if Path(judged_path).is_file() and not redo:
         logger.info("Judge results already found at %s", judged_path)
         reviewed = pd.read_csv(judged_path, index_col=0)
     else:
-        reviewed = run_interactive_llm_as_judge(judge_cfg, probe, api_config)
+        reviewed = run_interactive_llm_as_judge(judge_cfg, probe, api_config, skip_interactive=skip_interactive)
         safe_to_csv(reviewed, judged_path)
     return reviewed
 
@@ -145,7 +145,18 @@ if __name__ == '__main__':
 
     if not args.skip_judge:
         judge_cfg = load_yaml(args.judge_config)
-        raw_probe = run_judge_phase(judged_path, judge_cfg, raw_probe, args.api_config, args.redo_judge or args.redo_inference)
+        if args.skip_interactive:
+            logging.warning("You are skipping interactive review of LLM-as-judge outputs. The LLM-as-judge tends to have a high false positive rate, "
+                            "often rejecting too many responses, so we highly recommend keeping `--skip-interactive` unset.")
+
+        raw_probe = run_judge_phase(
+            judged_path,
+            judge_cfg,
+            raw_probe,
+            args.api_config,
+            args.redo_judge or args.redo_inference,
+            args.skip_interactive
+        )
 
     steer_stats = main_steerability_evaluation(raw_probe, not args.skip_judge, uvicorn_cfg["goal_dimensions"])
     print_steerability_summary(cfg, judge_cfg, steer_stats)

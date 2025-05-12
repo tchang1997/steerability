@@ -22,8 +22,9 @@ def create_app():
 
     @app.route("/")
     def index():
-        files = [f for f in os.listdir(RESULTS_DIR) if f.endswith(".csv")]
-        logger.info(f"Pulling results from {RESULTS_DIR} (found {len(files)} results)")
+        results_dir = RESULTS_DIR if "STEERFLOW_RESULTS_DIR" not in os.environ else os.environ["STEERFLOW_RESULTS_DIR"]
+        files = [f for f in os.listdir(results_dir) if f.endswith(".csv")]
+        logger.info(f"Pulling results from {results_dir} (found {len(files)} results)")
         return render_template("index.html", files=files)
 
     @app.route("/columns", methods=["POST"])

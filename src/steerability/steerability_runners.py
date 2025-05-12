@@ -82,7 +82,7 @@ def evaluate_and_review(pset: pd.DataFrame, judge_cfg: dict, api_config: dict, s
         judged = interactive_review(judged, judge_cfg["spot_check_size"])
     return judged
 
-def run_interactive_llm_as_judge(judge_cfg: str, probe: pd.DataFrame, api_config: str):
+def run_interactive_llm_as_judge(judge_cfg: str, probe: pd.DataFrame, api_config: str, skip_interactive: Optional[bool] = False):
     exception = None
     judge_proc = None
     try:
@@ -98,7 +98,7 @@ def run_interactive_llm_as_judge(judge_cfg: str, probe: pd.DataFrame, api_config
             judge_cfg["seed"],
             port=judge_port,
         )
-        reviewed = evaluate_and_review(pset, judge_cfg, api_config)
+        reviewed = evaluate_and_review(pset, judge_cfg, api_config, skip_interactive=skip_interactive)
     except Exception as e:
         exception = e
     finally:
