@@ -150,10 +150,6 @@ def interactive_review(
             })
             break
 
-
-    df['rationale_approved'] = True
-    df['spot_check'] = False
-
     # Update reviewed rows
     for res in results:
         mask = (

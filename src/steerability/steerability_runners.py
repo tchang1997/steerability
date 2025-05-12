@@ -78,6 +78,9 @@ def evaluate_and_review(pset: pd.DataFrame, judge_cfg: dict, api_config: dict, s
     )
     pset_answered = judge(pset, chat_instance)
     judged = parse_and_score(pset_answered)
+    judged['rationale_approved'] = True
+    judged['spot_check'] = False 
+    
     if not skip_interactive: # for the full set-and-forget experience. But I don't dare expose this to CLI yet...
         judged = interactive_review(judged, judge_cfg["spot_check_size"])
     return judged
