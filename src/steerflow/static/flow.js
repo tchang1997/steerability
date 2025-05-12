@@ -44,11 +44,17 @@ function updateExportButtonState() {
   //const btn = document.getElementById("export-btn");
   //btn.disabled = !(flow_success && !capturing);
 
-  elems = ["#flip-axes-btn", ".generate-btn", "#showSource", "#fileSelect", "#xcol", "#ycol", "#export-btn"]
-  elems.forEach(sel => {
+  disableIfCapturing = ["#flip-axes-btn", ".generate-btn", "#showSource", "#fileSelect", "#xcol", "#ycol"]
+  disableIfCapturing.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) el.disabled = capturing; 
+  });
+
+  disableIfCapturingOrFailed = ["#export-btn"]
+  disableIfCapturingOrFailed.forEach(sel => {
     const el = document.querySelector(sel);
     if (el) el.disabled = !(flow_success && !capturing);
-  });
+  }); 
 }
 
 
@@ -99,10 +105,10 @@ function setup() {
 
   //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
   const stops = [  
-    { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.1)}, // Faded sea-cyan
-    { stop: 0.07, color: lerpColor(color("#11B4F5"), color("#000000"), 0.1)}, // Cerulean
-    { stop: 0.15, color: "#4605EC" }, // Indigo
-    { stop: 0.35, color: "#8705E4" }, // Purple
+    { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.0)}, // Faded sea-cyan
+    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.0)}, // Cerulean
+    { stop: 0.2, color: "#4605EC" }, // Indigo
+    { stop: 0.4, color: "#8705E4" }, // Purple
     { stop: 0.7, color: "#FF06C1" }, // Hot Pink
     { stop: 1.0, color: "#FF0845" }  // Red-ish Pink
   ];

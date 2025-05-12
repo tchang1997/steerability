@@ -58,6 +58,12 @@
       border-radius: 4px;
     }
 
+    select.dark-select:hover,
+    select.dark-select:focus {
+      border-color: #f6a192;
+      box-shadow: 0 0 4px #f6a192;
+    }
+
     button {
       background-color: #f6a192;  /* soft pastel coral */
       color: #222;
@@ -138,6 +144,7 @@
   <h1 style="font-size: 3rem;">SteerFlow</h1>
   <p><i>a goal-space flow visualizer</i></p>
   <hr>
+  <h2>Select model & goal-space</h2>
   <div id="controls" style="
     display: flex;
     flex-direction: row;
@@ -148,6 +155,7 @@
     margin-bottom: 1rem;
     color: #ddd;
   ">
+  <div id="selectbox-row", style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 2.5rem; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818;">
     <label>Choose file: 
       <select id="fileSelect" class="dark-select">
         <option value="" selected disabled hidden>-- choose file --</option>
@@ -166,9 +174,10 @@
       Y-axis (unspecified):
       <select id="ycol" class="dark-select"></select>
     </label>
+    </div>
     <div style="flex-basis: 100%; height: 0;"></div> <!-- Line break -->
     <div style="display: flex; gap: 1rem;justify-content: flex-start; margin-top: 0.5rem">
-        <button onclick="generatePlot()"  class="generate-btn" onmouseover="this.style.boxShadow='0 0 12px #0ff'" onmouseout="this.style.boxShadow='0 0 8px #0ff'">
+        <button onclick="generatePlot()"  class="generate-btn">
           Generate
         </button>
         <button id="flip-axes-btn" style="margin-left: 0.5rem;">(⇄) Flip axes</button>
@@ -177,7 +186,7 @@
   </div>
   
   <hr>
-  <!--<h2>Flow diagram</h2>-->
+  <h2>Goal-space flow visualizer</h2>
 
   <div id="status" style="
     background-color: #222;
