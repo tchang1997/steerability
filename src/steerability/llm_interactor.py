@@ -157,11 +157,6 @@ class LLMInteractor(object):
             self.chat_instance = OpenAIChat(**kwargs)
         elif chat_type == "vllm":
             self.chat_instance = VLLMOpenAIChat(port=port, **kwargs)
-        elif chat_type == "deepinfra":
-            self.chat_instance = DeepInfraChat(**kwargs)
-        elif chat_type == "mockup":
-            seed_data = pd.read_csv("./data/default_seed_data_goalspace_mapped.csv", index_col=0)
-            self.chat_instance = MockedRunner(seed_data["text"].tolist())
         else:
             raise ValueError(f"Chat type `{chat_type}` is not recognized.")
         try:
@@ -208,7 +203,8 @@ class LLMInteractor(object):
                     final_output.append("Error: content policy violation detected!")
                     continue
                 import traceback
-                print("Unhandled exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
+                print("Unhandled exception raised during LLM response post-processing. This can happen if the server fails to respond with the expected format. "
+                      "This is usually resolved by retrying the prompt. Please re-run the current script manually to redo those calls, and previous calls will be fetched from the cache.")
                 print("Full traceback:")
                 print(traceback.format_exc())
                 raise e

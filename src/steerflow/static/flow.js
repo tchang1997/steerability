@@ -29,31 +29,49 @@ $("#showSource").change(function () {
   redraw();  // useful if in noLoop mode
 });
 
+$("#flip-axes-btn").click(function () {
+  const x = $("#xcol").val();
+  const y = $("#ycol").val();
+  $("#xcol").val(y);
+  $("#ycol").val(x);
+});
+
+function showStatus(msg, color = "red") {
+  $("#status").text(msg).css("color", color);
+}
+
+function updateExportButtonState() {
+  const btn = document.getElementById("export-btn");
+  btn.disabled = !(flow_success && !capturing);
+}
+
+
+function cancelExport() {
+  capturing = false;
+  captureFrameCount = 0;
+  capturer.stop();
+  capturer = null;
+
+  // Hide progress and reset button state
+  document.getElementById("exportProgressWrapper").style.display = "none";
+  document.getElementById("exportProgressBar").style.width = "0%";
+  document.getElementById("exportProgressText").textContent = "";
+
+  // Hide cancel button, re-enable export
+  document.getElementById("cancelExportBtn").style.display = "none";
+  updateExportButtonState?.();
+  loop();
+}
 
 let running = false;
 let flow_success = false;
 let flow_title = "";
 let particles = [];
-const numParticles = 500;
 const paddingLeft = 60;
 const paddingRight = 20;
-const paddingTop = 20;
+const paddingTop = 40;
 const paddingBottom = 40;
 
-function setup() {
-    textFont('Courier New');
-    const canvas = createCanvas(600, 600);
-    canvas.parent("flow-canvas");
-
-    for (let i = 0; i < numParticles; i++) {
-        particles.push({ x: random(), y: random(), age: 0 });
-    }
-
-    frameRate(60);
-    noLoop();
-    initializePlot();
-}
-  
 function initializePlot() {
     background(15, 15, 20);
     drawAxes();  // gridlines, ticks, axis labels
@@ -61,10 +79,17 @@ function initializePlot() {
 
 
 let flowColors = [];
-
+let canvasElt;
 function setup() {
-  createCanvas(800, 800); // or whatever
+  textFont('Courier New');
+
+  const canvas = createCanvas(800, 840); 
+  canvas.parent("flow-canvas");
+  canvasElt = canvas.elt;
+  frameRate(60);
+
   noLoop(); // optional: remove if animating
+  initializePlot();
 
   //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
   const stops = [  
@@ -93,7 +118,7 @@ function getColorFromStops(normMag, stops) {
 }
 
 
-const FLOW_SPEED = 0.01;
+const FLOW_SPEED = 0.012;
 
 function compressedFade(t) {
   const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
@@ -103,88 +128,116 @@ function compressedFade(t) {
 let xAxisLabel = "";
 let yAxisLabel = "";
 function draw() {
-    if (!running) {
+    if (!running && !capturing) {
         background(15, 15, 20);
         drawAxes();
         return;
     }
+    try {
+      // blendMode(ADD);  // luminous trails
+      noStroke();
+      fill(15, 15, 20, 40);  // dark fade
+      //blendMode(BLEND);
+      rect(0, 0, width, height);
 
-    blendMode(ADD);  // luminous trails
-    noStroke();
-    fill(15, 15, 20, 40);  // dark fade
-    blendMode(BLEND);
-    rect(0, 0, width, height);
+      drawAxes();
+      textAlign(CENTER);
+      textFont("monospace", 14);  // monospace
+      fill(255);  // light gray
+      noStroke();
 
-    drawAxes();
-    textAlign(CENTER);
-    textFont("monospace", 14);  // monospace
-    fill(255);  // light gray
-    noStroke();
+      if (flow_success) {
+        text(flow_title, width / 2, paddingTop - 20);    
+      }
 
-    if (flow_success) {
-      text(flow_title, width / 2, paddingTop - 10);    
-    }
+      colorMode(HSB, 360, 100, 100, 100);
+      if (showSourcePoints && field && field.source_x && field.source_y) {
+          stroke(255);
+          noFill();
+          strokeWeight(1);
+          for (let i = 0; i < field.source_x.length; i++) {
+            const px = map(field.source_x[i], 0, 1, paddingLeft, width - paddingRight);
+            const py = map(1 - field.source_y[i], 0, 1, paddingTop, height - paddingBottom);
+            ellipse(px, py, 4, 4);
+          }
+        }
+        
+      const travel = 0.1;
+      for (let p of particles) {
+        // Advance the particle's phase
+        p.t = (p.t + FLOW_SPEED) % 1.0;
+        const t1 = p.t % 1.0;
+        const t2 = (p.t + 0.5) % 1.0;
 
-    colorMode(HSB, 360, 100, 100, 100);
-    if (showSourcePoints && field && field.source_x && field.source_y) {
-        stroke(255);
-        noFill();
-        strokeWeight(1);
-        for (let i = 0; i < field.source_x.length; i++) {
-          const px = map(field.source_x[i], 0, 1, paddingLeft, width - paddingRight);
-          const py = map(1 - field.source_y[i], 0, 1, paddingTop, height - paddingBottom);
-          ellipse(px, py, 4, 4);
+        const a1 = compressedFade(t1);
+        const a2 = compressedFade(t2);
+        const norm = Math.max(Math.pow(a1, 1) + Math.pow(a2, 1), 1e-5);
+
+        const alpha1 = a1 / norm;
+        const alpha2 = a2 / norm;
+
+        for (let [t, alpha] of [[t1, alpha1], [t2, alpha2]]) {
+          const x = p.x0 - 0.5 * travel * p.u + travel * p.u * t;
+          const y = p.y0 - 0.5 * travel * p.v + travel * p.v * t;
+          if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+
+          const px = map(x, 0, 1, paddingLeft, width - paddingRight);
+          const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
+
+          let idx = Math.floor(p.mag / maxMag * 100);
+          const baseColor = flowColors[idx]
+          baseColor.setAlpha(alpha * 255);
+
+          fill(baseColor);
+          noStroke();
+          ellipse(px, py, 3, 3);
         }
       }
+
+      colorMode(RGB, 255);  // reset mode
+      if (capturing) {
+        if (captureFrameCount === 0) {
+          capturer.start();
+          document.getElementById("exportProgressWrapper").style.display = "block";
+          document.getElementById("exportProgressText").style.display = "block";
+          document.getElementById("cancelExportBtn").style.display = "block";
+
+
+        }
+        requestAnimationFrame(draw);
+        capturer.capture(canvasElt);
+
+        captureFrameCount++;
+
+        // update pbar
+        const percent = (captureFrameCount / framesPerCycle) * 100;
+        document.getElementById("exportProgressBar").style.width = `${percent}%`;
+        document.getElementById("exportProgressText").textContent =
+          `exporting frame ${captureFrameCount}/${framesPerCycle} (${percent.toFixed(2)}%)`;
       
-    const travel = 0.1;
-    for (let p of particles) {
-      // Advance the particle's phase
-      p.t = (p.t + FLOW_SPEED) % 1.0;
-      const t1 = p.t % 1.0;
-      const t2 = (p.t + 0.5) % 1.0;
 
-      const a1 = compressedFade(t1);
-      const a2 = compressedFade(t2);
-      const norm = Math.max(Math.pow(a1, 1) + Math.pow(a2, 1), 1e-5);
+        if (captureFrameCount >= framesPerCycle) {
+          capturer.stop();
+          capturer.save();
+          capturing = false;
+          updateExportButtonState();
 
-      const alpha1 = a1 / norm;
-      const alpha2 = a2 / norm;
+          // reset progress bar
+          document.getElementById("exportProgressWrapper").style.display = "none";
+          document.getElementById("exportProgressText").style.display = "none";
+          document.getElementById("cancelExportBtn").style.display = "none";
 
-      for (let [t, alpha] of [[t1, alpha1], [t2, alpha2]]) {
-        const x = p.x0 - 0.5 * travel * p.u + travel * p.u * t;
-        const y = p.y0 - 0.5 * travel * p.v + travel * p.v * t;
-        if (x < 0 || x > 1 || y < 0 || y > 1) continue;
 
-        const px = map(x, 0, 1, paddingLeft, width - paddingRight);
-        const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
-
-        let idx = Math.floor(p.mag / maxMag * 100);
-        const baseColor = flowColors[idx]
-        baseColor.setAlpha(alpha * 255);
-
-        fill(baseColor);
-        noStroke();
-        ellipse(px, py, 2, 2);
+          document.getElementById("exportProgressBar").style.width = "0%";
+          document.getElementById("exportProgressText").textContent = "";
+        }
       }
+    } catch (err) {
+      console.error("Uncaught error in draw():", err);
+      noLoop();
     }
-
-    colorMode(RGB, 255);  // reset mode
 }
       
-
-
-function drawArrow(base, vec) {
-  push();
-  translate(base.x, base.y);
-  line(0, 0, vec.x, vec.y);
-  rotate(vec.heading());
-  const arrowSize = 6;
-  translate(vec.mag() - arrowSize, 0);
-  triangle(0, arrowSize / 2, 0, -arrowSize / 2, arrowSize, 0);
-  pop();
-}
-
 function drawAxes() {
     textFont('Courier New'); 
     stroke(50);
@@ -227,17 +280,25 @@ function drawAxes() {
     
     // Axis labels
     textSize(16);
-    text("X", (paddingLeft + width - paddingRight) / 2, height - 5);
+    textAlign(CENTER);
+    if (flow_success) {
+      const xcol = $("#xcol").val();
+      const ycol = $("#ycol").val();
+      xAxisLabel = `${xcol} (specified)`;
+      yAxisLabel = `${ycol} (unspecified)`;
+    } else {
+      xAxisLabel = "X";
+      yAxisLabel = "Y";
+    }
+    text(xAxisLabel, (paddingLeft + width - paddingRight) / 2, height - paddingBottom + 30);
+
+    // Y-axis label
     push();
     translate(paddingLeft - 45, height / 2);
     rotate(-HALF_PI);
-    text("Y", 0, 0);
+    text(yAxisLabel, 0, 0);
     pop();
   }
-  
-function showStatus(msg, color = "red") {
-    $("#status").text(msg).css("color", color);
-}
 
 function resetFlowCanvas() {
   // Clears particles but keeps grid and axis
@@ -258,7 +319,7 @@ function generatePlot() {
   
     showStatus("Generating flow...");
 
-    flow_title = `subspace: (${xcol}, ${ycol})`;
+    flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
@@ -290,13 +351,28 @@ function generatePlot() {
             loop();
             showStatus("Flow loaded.", "green");
             flow_success = true;
+            updateExportButtonState();
         });
       },
       error: () => {
         resetFlowCanvas();
         showStatus("Error generating flow.");
         flow_success = false;
+        updateExportButtonState();
       }
     });
   }
   
+
+let capturer;
+let capturing = false;
+let captureFrameCount = 0;
+const framesPerCycle = Math.floor(1.0 / FLOW_SPEED);  // full loop
+function startGifCapture() {
+  capturer = new CCapture({ format: 'webm', framerate: 60});
+  loop();  // ensure draw is running
+
+  capturing = true;
+  updateExportButtonState();
+  captureFrameCount = 0;
+}
