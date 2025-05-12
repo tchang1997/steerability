@@ -1,16 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <title>SteerFlow - a steerability visualizer</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='steerflow.ico') }}">
   <script src=" https://cdn.jsdelivr.net/npm/p5@2.0.1/lib/p5.min.js "></script>
-  <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src=" https://cdn.jsdelivr.net/npm/ccapture.js-npmfixed@1.1.0/build/CCapture.all.min.js "></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Arvo:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
   <style>
     body {
       background-color: #111;
       color: #ddd;
-      font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+      font-family: 'Arvo', serif;
       margin: 0;
       padding: 1rem;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Playfair Display', serif;
     }
 
     label, select, input, button {
@@ -50,7 +58,7 @@
       border-radius: 4px;
     }
 
-    button.generate-btn {
+    button {
       background-color: #f6a192;  /* soft pastel coral */
       color: #222;
       font-size: 1.1rem;
@@ -61,9 +69,13 @@
       cursor: pointer;
       box-shadow: 0 0 6px rgba(246, 161, 146, 0.6);
       transition: 0.2s ease;
+      line-height: 1.5;
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
     }
 
-    button.generate-btn:hover {
+    button:hover {
       box-shadow: 0 0 12px rgba(246, 161, 146, 0.8);
     }
 
@@ -90,19 +102,42 @@
       margin: 0;
     }
 
+    #export-btn:disabled {
+    opacity: 0.4;
+    background-color: #333;
+    color: #888;
+    cursor: not-allowed;
+    border: 1px solid #444;
+   }
+
+   #cancelExportBtn {
+      display: none;
+      padding: 0.4rem 1rem;
+      font-size: 0.9rem;
+      font-weight: bold;
+      background-color: transparent;
+      color: #f88;
+      border: 1px solid #f88;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: none;
+      transition: all 0.2s ease;
+   }
+
 
   </style>
 </head>
 <body>
-  <h1>SteerFlow</h1>
+  <h1 style="font-size: 3rem;">SteerFlow</h1>
   <p><i>a goal-space flow visualizer</i></p>
   <hr>
   <div id="controls" style="
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
-    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;   
-    gap: 1rem;
+    flex-wrap: wrap;
+    column-gap: 2rem;
+    row-gap: 0.5rem;
     margin-bottom: 1rem;
     color: #ddd;
   ">
@@ -124,41 +159,79 @@
       Y-axis (unspecified):
       <select id="ycol" class="dark-select"></select>
     </label>
+    <div style="flex-basis: 100%; height: 0;"></div> <!-- Line break -->
+    <div style="display: flex; gap: 1rem;justify-content: flex-start; margin-top: 0.5rem">
+        <button onclick="generatePlot()"  class="generate-btn" onmouseover="this.style.boxShadow='0 0 12px #0ff'" onmouseout="this.style.boxShadow='0 0 8px #0ff'">
+          Generate
+        </button>
+        <button id="flip-axes-btn" style="margin-left: 0.5rem;">(⇄) Flip axes</button>
 
-    <button onclick="generatePlot()" checked class="generate-btn" onmouseover="this.style.boxShadow='0 0 12px #0ff'" onmouseout="this.style.boxShadow='0 0 8px #0ff'">
-      Generate
-    </button>
+    </div>
   </div>
   
   <hr>
-  <h2>Flow diagram</h2>
+  <!--<h2>Flow diagram</h2>-->
 
-  <div style="background-color: #111; padding: 1rem; border-radius: 8px; width: fit-content; color: #ddd; font-family: 'Segoe UI', sans-serif;">
-    <label style="margin-bottom: 0.5rem; display: block;">
-      <input type="checkbox" id="showSource"> Plot source
-    </label>
-  <div id="flow-canvas"></div>
-  
   <div id="status" style="
     background-color: #222;
     color: #ccc;
-    font-family: 'Courier New', monospace;
     font-size: 0.85rem;
-    margin-top: 1rem;
+    margin-bottom: 1rem;
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
     border: 1px solid #333;
     width: fit-content;
-    max-width: 90%;
+    max-width: 100%;
     box-shadow: 0 0 5px rgba(0,0,0,0.4);
   ">
-
+    Waiting for selection.
   </div>
+
+  <!-- Row 2: Controls -->
+  <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+    <label style="margin: 0;">
+      <input type="checkbox" checked id="showSource"> Plot source texts?
+    </label>
+  
+    <div style="display: flex; align-items: center; gap: 1.5rem;">
+      <button id="export-btn" onclick="startGifCapture()" disabled>
+        Export to WebM
+      </button>
+  
+      <div id="exportProgressWrapper" style="
+        display: none;
+        height: 4px;
+        width: 250px;
+        background: #444;
+        border-radius: 3px;
+        overflow: hidden;
+        position: relative;
+      ">
+        <div id="exportProgressBar" style="
+          height: 100%;
+          width: 0%;
+          background: linear-gradient(90deg, #a0f7b5, #48f079);
+          transition: width 0.2s ease;
+        "></div>
+
+      </div>
+      <div id="exportProgressText" style="
+        top: -1.5rem;   /* pull it upward */
+        left: -0.5rem;
+        right: 0;
+        font-size: 0.75rem;
+        font-style: italic;
+        color: #ccc;
+        white-space: nowrap;
+      "></div>
+      <button id="cancelExportBtn" onclick="cancelExport()" style="display: none;">Cancel</button>
+    </div>
   </div>
   
- 
-  <script src="{{ url_for('static', filename='flow.js') }}"></script>
+  
+  <div id="flow-canvas"></div>
 
+  <script src="{{ url_for('static', filename='flow.js') }}"></script>
 </body>
 </html>
 

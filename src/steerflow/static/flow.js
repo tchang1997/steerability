@@ -25,128 +25,219 @@ $("#fileSelect").change(function () {
 let showSourcePoints = true;
 
 $("#showSource").change(function () {
-showSourcePoints = this.checked;
-redraw();  // useful if in noLoop mode
+  showSourcePoints = this.checked;
+  redraw();  // useful if in noLoop mode
 });
 
+$("#flip-axes-btn").click(function () {
+  const x = $("#xcol").val();
+  const y = $("#ycol").val();
+  $("#xcol").val(y);
+  $("#ycol").val(x);
+});
+
+function showStatus(msg, color = "red") {
+  $("#status").text(msg).css("color", color);
+}
+
+function updateExportButtonState() {
+  const btn = document.getElementById("export-btn");
+  btn.disabled = !(flow_success && !capturing);
+}
+
+
+function cancelExport() {
+  capturing = false;
+  captureFrameCount = 0;
+  capturer.stop();
+  capturer = null;
+
+  // Hide progress and reset button state
+  document.getElementById("exportProgressWrapper").style.display = "none";
+  document.getElementById("exportProgressBar").style.width = "0%";
+  document.getElementById("exportProgressText").textContent = "";
+
+  // Hide cancel button, re-enable export
+  document.getElementById("cancelExportBtn").style.display = "none";
+  updateExportButtonState?.();
+  loop();
+}
 
 let running = false;
+let flow_success = false;
+let flow_title = "";
 let particles = [];
-const numParticles = 500;
 const paddingLeft = 60;
 const paddingRight = 20;
-const paddingTop = 20;
+const paddingTop = 40;
 const paddingBottom = 40;
 
-function setup() {
-    textFont('Courier New');
-    const canvas = createCanvas(600, 600);
-    canvas.parent("flow-canvas");
-
-    for (let i = 0; i < numParticles; i++) {
-        particles.push({ x: random(), y: random(), age: 0 });
-    }
-
-    frameRate(60);
-    noLoop();
-    initializePlot();
-}
-  
 function initializePlot() {
     background(15, 15, 20);
     drawAxes();  // gridlines, ticks, axis labels
 }
 
-function getJetColor(normMag) {
-    normMag = constrain(normMag, 0, 1);
 
+let flowColors = [];
+let canvasElt;
+function setup() {
+  textFont('Courier New');
 
-    // Hue 260 (deep blue) → 0 (red), full sat/bright
-    const hue = map(normMag, 0, 1, 260, 345);
-    colorMode(HSB, 360, 100, 100, 100);
-    const col = color(hue, 100, 100, 100);  // Full neon
-    colorMode(RGB, 255);
-    return col;
+  const canvas = createCanvas(800, 840); 
+  canvas.parent("flow-canvas");
+  canvasElt = canvas.elt;
+  frameRate(60);
+
+  noLoop(); // optional: remove if animating
+  initializePlot();
+
+  //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
+  const stops = [  
+    { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.1)}, // Faded sea-cyan
+    { stop: 0.07, color: lerpColor(color("#11B4F5"), color("#000000"), 0.1)}, // Cerulean
+    { stop: 0.15, color: "#4605EC" }, // Indigo
+    { stop: 0.35, color: "#8705E4" }, // Purple
+    { stop: 0.7, color: "#FF06C1" }, // Hot Pink
+    { stop: 1.0, color: "#FF0845" }  // Red-ish Pink
+  ];
+
+  for (let i = 0; i <= 100; i++) {
+    let normMag = i / 100.0;
+    flowColors[i] = getColorFromStops(normMag, stops);
+  }
+}
+
+function getColorFromStops(normMag, stops) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (normMag >= stops[i].stop && normMag <= stops[i + 1].stop) {
+      const t = map(normMag, stops[i].stop, stops[i + 1].stop, 0, 1);
+      return lerpColor(color(stops[i].color), color(stops[i + 1].color), t);
+    }
+  }
+  return color(stops[stops.length - 1].color);
 }
 
 
+const FLOW_SPEED = 0.012;
+
+function compressedFade(t) {
+  const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
+  return Math.pow(raw, 1.5);  // steeper falloff
+}
 
 let xAxisLabel = "";
 let yAxisLabel = "";
 function draw() {
-    if (!running) {
+    if (!running && !capturing) {
         background(15, 15, 20);
         drawAxes();
         return;
     }
+    try {
+      // blendMode(ADD);  // luminous trails
+      noStroke();
+      fill(15, 15, 20, 40);  // dark fade
+      //blendMode(BLEND);
+      rect(0, 0, width, height);
 
-    blendMode(ADD);  // luminous trails
-    noStroke();
-    fill(15, 15, 20, 10);  // dark fade
-    blendMode(BLEND);
-    rect(0, 0, width, height);
+      drawAxes();
+      textAlign(CENTER);
+      textFont("monospace", 14);  // monospace
+      fill(255);  // light gray
+      noStroke();
 
-    drawAxes();
-    textAlign(CENTER);
-    textFont("monospace", 14);  // monospace
-    fill(255);  // light gray
-    noStroke();
-    xAxisLabel = $("#xcol").val();
-    yAxisLabel = $("#ycol").val();
-    text(`subspace: (${xAxisLabel}, ${yAxisLabel})`, width / 2, paddingTop - 10);
+      if (flow_success) {
+        text(flow_title, width / 2, paddingTop - 20);    
+      }
 
-    colorMode(HSB, 360, 100, 100, 100);
-    if (showSourcePoints && field && field.source_x && field.source_y) {
-        stroke(255);
-        noFill();
-        strokeWeight(1);
-        for (let i = 0; i < field.source_x.length; i++) {
-          const px = map(field.source_x[i], 0, 1, paddingLeft, width - paddingRight);
-          const py = map(1 - field.source_y[i], 0, 1, paddingTop, height - paddingBottom);
-          ellipse(px, py, 4, 4);
+      colorMode(HSB, 360, 100, 100, 100);
+      if (showSourcePoints && field && field.source_x && field.source_y) {
+          stroke(255);
+          noFill();
+          strokeWeight(1);
+          for (let i = 0; i < field.source_x.length; i++) {
+            const px = map(field.source_x[i], 0, 1, paddingLeft, width - paddingRight);
+            const py = map(1 - field.source_y[i], 0, 1, paddingTop, height - paddingBottom);
+            ellipse(px, py, 4, 4);
+          }
+        }
+        
+      const travel = 0.1;
+      for (let p of particles) {
+        // Advance the particle's phase
+        p.t = (p.t + FLOW_SPEED) % 1.0;
+        const t1 = p.t % 1.0;
+        const t2 = (p.t + 0.5) % 1.0;
+
+        const a1 = compressedFade(t1);
+        const a2 = compressedFade(t2);
+        const norm = Math.max(Math.pow(a1, 1) + Math.pow(a2, 1), 1e-5);
+
+        const alpha1 = a1 / norm;
+        const alpha2 = a2 / norm;
+
+        for (let [t, alpha] of [[t1, alpha1], [t2, alpha2]]) {
+          const x = p.x0 - 0.5 * travel * p.u + travel * p.u * t;
+          const y = p.y0 - 0.5 * travel * p.v + travel * p.v * t;
+          if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+
+          const px = map(x, 0, 1, paddingLeft, width - paddingRight);
+          const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
+
+          let idx = Math.floor(p.mag / maxMag * 100);
+          const baseColor = flowColors[idx]
+          baseColor.setAlpha(alpha * 255);
+
+          fill(baseColor);
+          noStroke();
+          ellipse(px, py, 3, 3);
         }
       }
 
-      for (let p of particles) {
-        p.t += 0.01;
-        const baseTravel = 0.1
-        const travel = baseTravel * p.mag / maxMag;  // longer streaks for faster flow     
-        const progress = p.t % 1;
+      colorMode(RGB, 255);  // reset mode
+      if (capturing) {
+        if (captureFrameCount === 0) {
+          capturer.start();
+          document.getElementById("exportProgressWrapper").style.display = "block";
+          document.getElementById("exportProgressText").style.display = "block";
+          document.getElementById("cancelExportBtn").style.display = "block";
 
-        const base_x = p.x0 - 0.5 * travel * p.u;
-        const base_y = p.y0 - 0.5 * travel * p.v;
 
-        const x = base_x + travel * p.u * progress;
-        const y = base_y + travel * p.v * progress;
+        }
+        requestAnimationFrame(draw);
+        capturer.capture(canvasElt);
 
-        if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+        captureFrameCount++;
 
-        const px = map(x, 0, 1, paddingLeft, width - paddingRight);
-        const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
-
-        const col = getJetColor(p.mag / maxMag);
-        fill(col);
-        noStroke();
-        ellipse(px, py, 2.5, 2.5);
-        
-    }
-    
-    colorMode(RGB, 255);  // reset mode
-}
+        // update pbar
+        const percent = (captureFrameCount / framesPerCycle) * 100;
+        document.getElementById("exportProgressBar").style.width = `${percent}%`;
+        document.getElementById("exportProgressText").textContent =
+          `exporting frame ${captureFrameCount}/${framesPerCycle} (${percent.toFixed(2)}%)`;
       
 
+        if (captureFrameCount >= framesPerCycle) {
+          capturer.stop();
+          capturer.save();
+          capturing = false;
+          updateExportButtonState();
 
-function drawArrow(base, vec) {
-  push();
-  translate(base.x, base.y);
-  line(0, 0, vec.x, vec.y);
-  rotate(vec.heading());
-  const arrowSize = 6;
-  translate(vec.mag() - arrowSize, 0);
-  triangle(0, arrowSize / 2, 0, -arrowSize / 2, arrowSize, 0);
-  pop();
+          // reset progress bar
+          document.getElementById("exportProgressWrapper").style.display = "none";
+          document.getElementById("exportProgressText").style.display = "none";
+          document.getElementById("cancelExportBtn").style.display = "none";
+
+
+          document.getElementById("exportProgressBar").style.width = "0%";
+          document.getElementById("exportProgressText").textContent = "";
+        }
+      }
+    } catch (err) {
+      console.error("Uncaught error in draw():", err);
+      noLoop();
+    }
 }
-
+      
 function drawAxes() {
     textFont('Courier New'); 
     stroke(50);
@@ -189,30 +280,41 @@ function drawAxes() {
     
     // Axis labels
     textSize(16);
-    text("X", (paddingLeft + width - paddingRight) / 2, height - 5);
+    textAlign(CENTER);
+    text(plotted_xcol, (paddingLeft + width - paddingRight) / 2, height - paddingBottom + 30);
+
+    // Y-axis label
     push();
     translate(paddingLeft - 45, height / 2);
     rotate(-HALF_PI);
-    text("Y", 0, 0);
+    text(plotted_ycol, 0, 0);
     pop();
   }
-  
-function showStatus(msg, color = "red") {
-    $("#status").text(msg).css("color", color);
+
+function resetFlowCanvas() {
+  // Clears particles but keeps grid and axis
+  background(15, 15, 20);  // dark grid background
+  drawAxes();              // custom function to redraw ticks/axes
+  particles = [];          // clear animated flow particles
 }
-  
+
+
+let plotted_xcol = ""
+let plotted_ycol = ""
 function generatePlot() {
     const xcol = $("#xcol").val();
     const ycol = $("#ycol").val();
     const filename = $("#fileSelect").val();
-  
     if (!xcol || !ycol || !filename) {
       showStatus("Please select a file and both axes.");
       return;
     }
   
     showStatus("Generating flow...");
-  
+
+    flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
+    plotted_xcol = `${xcol} (specified)`
+    plotted_ycol = `${ycol} (unspecified)`
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
@@ -243,9 +345,40 @@ function generatePlot() {
             running = true;
             loop();
             showStatus("Flow loaded.", "green");
+            flow_success = true;
+            updateExportButtonState();
         });
       },
-      error: () => showStatus("Error generating flow.")
+      error: () => {
+        resetFlowCanvas();
+        showStatus("Error generating flow.");
+        flow_success = false;
+        updateExportButtonState();
+      }
     });
   }
   
+
+function getExportFilename() {
+  const rawName = $("#fileSelect").val().replace(/\.csv$/, "");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${rawName}_x__${plotted_xcol}_y__${plotted_ycol}_${timestamp}`;
+}
+  
+
+let capturer;
+let capturing = false;
+let captureFrameCount = 0;
+const framesPerCycle = Math.floor(1.0 / FLOW_SPEED);  // full loop
+function startGifCapture() {
+  capturer = new CCapture({
+    format: 'webm',
+    framerate: 60,
+    name: getExportFilename(), 
+  });
+  loop();  // ensure draw is running
+
+  capturing = true;
+  updateExportButtonState();
+  captureFrameCount = 0;
+}

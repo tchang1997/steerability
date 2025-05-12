@@ -1,0 +1,15 @@
+# Basic experiment info
+model_id: "gpt-4.1-nano-2025-04-14"
+probe: "./data/2025_06_steerbench_64x32.csv"
+# Direct + Negative Prompt
+prompt_strategy: "direct"
+inst_addons:
+  disambig: True
+seed: 42
+max_tokens: 4096
+rate_limit: 8
+text_gen_kwargs:
+  randomness: 0.0 # temperature
+  num_generations: 1
+# Saving
+save_as: "gpt_4_1_nano"

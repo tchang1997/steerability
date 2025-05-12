@@ -129,6 +129,7 @@ def get_metric_dict(arr):
         "min": np.min(arr),
         "max": np.max(arr),
         "std": np.std(arr),
+        "iqr": np.percentile(arr, 75) - np.percentile(arr, 25), 
         "raw": arr.tolist(),
     }
 

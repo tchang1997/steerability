@@ -90,6 +90,9 @@ class LLMInteractor(object):
         self.async_mode = async_mode
         self.goalspace_port = goalspace_port
         self.max_simul_goalspace_reqs = max_simul_goalspace_reqs
+        logger.info(f"Creating LLMInteractor with args: llm_name={self.llm_name}, chat_type={self.chat_type}, cache_file={self.cache_file}, "
+                f"instruction_generator={self.instruction_generator.__class__.__name__}, num_generations={self.num_generations}, "
+                f"text_gen_kwargs={self.text_gen_kwargs}")
 
         if os.path.isfile(api_config):
             with open(api_config, "r") as f:
@@ -154,11 +157,6 @@ class LLMInteractor(object):
             self.chat_instance = OpenAIChat(**kwargs)
         elif chat_type == "vllm":
             self.chat_instance = VLLMOpenAIChat(port=port, **kwargs)
-        elif chat_type == "deepinfra":
-            self.chat_instance = DeepInfraChat(**kwargs)
-        elif chat_type == "mockup":
-            seed_data = pd.read_csv("./data/default_seed_data_goalspace_mapped.csv", index_col=0)
-            self.chat_instance = MockedRunner(seed_data["text"].tolist())
         else:
             raise ValueError(f"Chat type `{chat_type}` is not recognized.")
         try:
@@ -185,13 +183,15 @@ class LLMInteractor(object):
     ) -> pd.DataFrame:
         if isinstance(prompts, str):
             prompts = [prompts]
+        # since we do caching -- we can later check if all outputs are coherent...
         outputs = Output(GenerateText(Template("{{input}}"), **self.text_gen_kwargs)).run(self.chat_instance, prompts.tolist())
+
         final_output = []
         raw_output = []
         for i, raw_resp in enumerate(outputs.outputs.llm_responses): 
             try:
                 iter_obj = raw_resp if isinstance(raw_resp[0], str) else raw_resp[0]
-                for resp in iter_obj: # do we need [0]?
+                for resp in iter_obj: 
                     clean_resp = clean_model_output(self.llm_name, resp) # by default, only return one response
                     clean_resp = self.instruction_generator.clean_response(clean_resp) 
                     raw_output.append(resp)
@@ -203,7 +203,8 @@ class LLMInteractor(object):
                     final_output.append("Error: content policy violation detected!")
                     continue
                 import traceback
-                print("Unhandled exception raised during LLM response post-processing. This can happen if an LLM request failed for any reason. Rerun the current script to redo those calls. Successful calls will be fetched from the cache.")
+                print("Unhandled exception raised during LLM response post-processing. This can happen if the server fails to respond with the expected format. "
+                      "This is usually resolved by retrying the prompt. Please re-run the current script manually to redo those calls, and previous calls will be fetched from the cache.")
                 print("Full traceback:")
                 print(traceback.format_exc())
                 raise e

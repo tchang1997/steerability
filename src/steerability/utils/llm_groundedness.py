@@ -132,7 +132,7 @@ def interactive_review(
         table.add_row(row["text"], str(row["llm_response"]), row["answer"], row["rationale"])
         console.print(table)
         while True:
-            user_input = input(">>> Approve reasoning? (yes/no): ").strip().capitalize()
+            user_input = input(f">>> Approve reasoning (model answer: {row['answer']})? (yes/no): ").strip().capitalize()
             if user_input in ["Yes", "Y"]:
                 approval = True
             elif user_input in ["No", "N"]:
@@ -149,10 +149,6 @@ def interactive_review(
                 'spot_check': True
             })
             break
-
-
-    df['rationale_approved'] = True
-    df['spot_check'] = False
 
     # Update reviewed rows
     for res in results:
