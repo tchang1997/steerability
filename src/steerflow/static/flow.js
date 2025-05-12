@@ -41,8 +41,14 @@ function showStatus(msg, color = "red") {
 }
 
 function updateExportButtonState() {
-  const btn = document.getElementById("export-btn");
-  btn.disabled = !(flow_success && !capturing);
+  //const btn = document.getElementById("export-btn");
+  //btn.disabled = !(flow_success && !capturing);
+
+  elems = ["#flip-axes-btn", ".generate-btn", "#showSource", "#fileSelect", "#xcol", "#ycol", "#export-btn"]
+  elems.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) el.disabled = !(flow_success && !capturing);
+  });
 }
 
 
