@@ -6,8 +6,10 @@ import plotly.graph_objects as go
 from steerability.utils.result_utils import STEERING_GOALS
 from steerflow.plotting_utils import grab_subspace, export_vector_field
 
-cwd = os.path.dirname(__file__)
-RESULTS_DIR = os.path.abspath(os.path.join(cwd, "..", "..", "results", "judged"))
+HERE = os.path.abspath(os.path.dirname(__file__))  # steerflow/
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))  # src/
+RESULTS_DIR = os.path.join(ROOT, "results", "judged")
+STATIC_DIR = os.path.join(HERE, "static")
 
 import logging
 logging.basicConfig(
@@ -18,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=os.path.join(HERE, "static"), static_url_path="/static")
 
     @app.route("/")
     def index():
@@ -41,7 +43,7 @@ def create_app():
     @app.route("/data", methods=["POST"])
     def get_data():
         payload = request.json
-        df = pd.read_csv(f"results/{payload['filename']}")
+        df = pd.read_csv(os.path.join(RESULTS_DIR, payload["filename"]))
         x, y = payload["xcol"], payload["ycol"]
         x0 = df[f"source_{x}"].tolist()
         y0 = df[f"source_{y}"].tolist()
@@ -62,8 +64,9 @@ def create_app():
         logger.info(f"Grabbing subspace: ({xcol}, {ycol})")
         subspace = grab_subspace(df, xcol, ycol, steering_goals=STEERING_GOALS)
 
-        logger.info(f"Exporting vector field!")
-        export_vector_field(subspace, xcol, ycol, output_path="static/_field.json")
+        output_path = os.path.join(STATIC_DIR, "_field.json")
+        logger.info(f"Exporting vector field to {output_path}")
+        export_vector_field(subspace, xcol, ycol, output_path=output_path)
 
         return jsonify({"status": "ok"})
 
