@@ -90,8 +90,8 @@ class LLMInteractor(object):
         self.async_mode = async_mode
         self.goalspace_port = goalspace_port
         self.max_simul_goalspace_reqs = max_simul_goalspace_reqs
-        logger.info(f"Creating LLMInteractor with args: llm_name={self.llm_name}, chat_type={self.chat_type}, cache_file={self.chat_file}, "
-                f"instruction_generator={self.instruction_generator.__name__}, num_generations={self.num_generations}, "
+        logger.info(f"Creating LLMInteractor with args: llm_name={self.llm_name}, chat_type={self.chat_type}, cache_file={self.cache_file}, "
+                f"instruction_generator={self.instruction_generator.__class__.__name__}, num_generations={self.num_generations}, "
                 f"text_gen_kwargs={self.text_gen_kwargs}")
 
         if os.path.isfile(api_config):
