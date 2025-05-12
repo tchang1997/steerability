@@ -281,22 +281,13 @@ function drawAxes() {
     // Axis labels
     textSize(16);
     textAlign(CENTER);
-    if (flow_success) {
-      const xcol = $("#xcol").val();
-      const ycol = $("#ycol").val();
-      xAxisLabel = `${xcol} (specified)`;
-      yAxisLabel = `${ycol} (unspecified)`;
-    } else {
-      xAxisLabel = "X";
-      yAxisLabel = "Y";
-    }
-    text(xAxisLabel, (paddingLeft + width - paddingRight) / 2, height - paddingBottom + 30);
+    text(plotted_xcol, (paddingLeft + width - paddingRight) / 2, height - paddingBottom + 30);
 
     // Y-axis label
     push();
     translate(paddingLeft - 45, height / 2);
     rotate(-HALF_PI);
-    text(yAxisLabel, 0, 0);
+    text(plotted_ycol, 0, 0);
     pop();
   }
 
@@ -307,7 +298,9 @@ function resetFlowCanvas() {
   particles = [];          // clear animated flow particles
 }
 
-  
+
+let plotted_xcol = ""
+let plotted_ycol = ""
 function generatePlot() {
     const xcol = $("#xcol").val();
     const ycol = $("#ycol").val();
@@ -320,6 +313,8 @@ function generatePlot() {
     showStatus("Generating flow...");
 
     flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
+    plotted_xcol = `${xcol} (specified)`
+    plotted_ycol = `${ycol} (unspecified)`
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
@@ -364,12 +359,23 @@ function generatePlot() {
   }
   
 
+function getExportFilename() {
+  const rawName = $("#fileSelect").val().replace(/\.csv$/, "");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${rawName}_x__${plotted_xcol}_y__${plotted_ycol}_${timestamp}`;
+}
+  
+
 let capturer;
 let capturing = false;
 let captureFrameCount = 0;
 const framesPerCycle = Math.floor(1.0 / FLOW_SPEED);  // full loop
 function startGifCapture() {
-  capturer = new CCapture({ format: 'webm', framerate: 60});
+  capturer = new CCapture({
+    format: 'webm',
+    framerate: 60,
+    name: getExportFilename(), 
+  });
   loop();  // ensure draw is running
 
   capturing = true;
