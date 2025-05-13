@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import pandas as pd
-import plotly.graph_objects as go
 
 from steerability.utils.result_utils import STEERING_GOALS
 from steerflow.plotting_utils import grab_subspace, export_vector_field
