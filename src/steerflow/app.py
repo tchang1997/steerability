@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify
+from functools import lru_cache
+from io import BytesIO
 import os
 import pandas as pd
 
@@ -10,15 +12,25 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))  # src/
 STATIC_DIR = os.path.join(HERE, "static")
 
 
-USE_S3 = os.environ.get("STEERFLOW_USE_S3", "false").lower() == "true"
+USE_R2 = os.environ.get("STEERFLOW_USE_R2", "false").lower() == "true"
 
-if USE_S3:
+if USE_R2:
     import boto3
+    import hashlib
+    from botocore.client import Config
 
-    S3_ENDPOINT = os.environ["STEERFLOW_S3_ENDPOINT"]
-    S3_BUCKET = os.environ["STEERFLOW_S3_BUCKET"]
-    S3_PREFIX = os.environ.get("STEERFLOW_S3_PREFIX", "results/")
-    s3 = boto3.client("s3", endpoint_url=S3_ENDPOINT)
+    ACCOUNT_ID = os.environ.get('R2_ACCOUNT_ID')
+    ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')
+    SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY')
+    BUCKET_NAME = os.environ.get('R2_BUCKET_NAME')
+
+    hashed_secret_key = hashlib.sha256(SECRET_ACCESS_KEY.encode()).hexdigest()
+    s3_client = boto3.client('s3',
+        endpoint_url=f'https://{ACCOUNT_ID}.r2.cloudflarestorage.com',
+        aws_access_key_id=ACCESS_KEY_ID,
+        aws_secret_access_key=hashed_secret_key,
+        config=Config(signature_version='s3v4')
+    )
 else:
     RESULTS_DIR = os.environ.get("STEERFLOW_RESULTS_DIR", os.path.join(ROOT, "results", "judged"))
 
@@ -31,30 +43,46 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@lru_cache(maxsize=128)
+def get_cached_object(filename: str):
+    logger.info(f"Fetching r2://{filename}")
+    return s3_client.get_object(Bucket=BUCKET_NAME, Key=filename)["Body"].read()
+
+def get_df(filename):
+    if USE_R2:
+        logger.info(f"Reading result CSV: r2://{filename}")
+        obj = get_cached_object(filename)
+        df = pd.read_csv(BytesIO(obj), index_col=0)
+    else:
+        results_path = os.path.join(RESULTS_DIR, filename)
+        logger.info(f"Reading result CSV from local: {results_path}")
+        df = pd.read_csv(results_path, index_col=0)
+    return df
+
 def create_app():
     app = Flask(__name__, static_folder=os.path.join(HERE, "static"), static_url_path="/static")
 
     @app.route("/")
     def index():
-        if USE_S3:
-            response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=S3_PREFIX)
+        if USE_R2:
+            response = s3_client.list_objects_v2(Bucket=BUCKET_NAME)
             files = [
                 obj["Key"]
                 for obj in response.get("Contents", [])
                 if obj["Key"].endswith(".csv")
             ]
-            files = [key[len(S3_PREFIX):] for key in files]  # strip prefix for display
+            results_dir = f"r2://{BUCKET_NAME}"
         else:
+            results_dir = RESULTS_DIR
             files = [f for f in os.listdir(RESULTS_DIR) if f.endswith(".csv")]
-        logger.info(f"Pulling results from {RESULTS_DIR} (found {len(files)} results)")
+        logger.info(f"Pulling results from {results_dir} (found {len(files)} results)")
         return render_template("index.html", files=files)
 
     @app.route("/columns", methods=["POST"])
     def get_columns():
         filename = request.json["filename"]
-        results_path = os.path.join(RESULTS_DIR, filename)
-        logger.info(f"Reading result CSV: {results_path}")
-        df = pd.read_csv(results_path, index_col=0)
+        df = get_df(filename)
+
         # Only return relevant columns (e.g., numeric)
         cols = [c[len("delta_"):] for c in df.columns if c.startswith("delta_")]
         logger.info(f"Found goal dimensions (delta_*): {cols}")
@@ -63,7 +91,9 @@ def create_app():
     @app.route("/data", methods=["POST"])
     def get_data():
         payload = request.json
-        df = pd.read_csv(os.path.join(RESULTS_DIR, payload["filename"]))
+        filename = payload["filename"]
+        df = get_df(filename) 
+
         x, y = payload["xcol"], payload["ycol"]
         x0 = df[f"source_{x}"].tolist()
         y0 = df[f"source_{y}"].tolist()
@@ -79,7 +109,7 @@ def create_app():
         xcol, ycol = data["xcol"], data["ycol"]
 
         logger.info(f"Reading steerability probe results from {filename}")
-        df = pd.read_csv(os.path.join(RESULTS_DIR, filename))
+        df = get_df(filename)
 
         logger.info(f"Grabbing subspace: ({xcol}, {ycol})")
         subspace = grab_subspace(df, xcol, ycol, steering_goals=STEERING_GOALS)

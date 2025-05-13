@@ -54,9 +54,6 @@ steerflow = "steerflow.__main__:cli"
 [tool.setuptools]
 packages = ["steerability", "steerflow"]
 
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
-
 [tool.setuptools.package-dir]
 "" = "src"
 
