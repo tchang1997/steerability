@@ -7,8 +7,21 @@ from steerflow.plotting_utils import grab_subspace, export_vector_field
 
 HERE = os.path.abspath(os.path.dirname(__file__))  # steerflow/
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))  # src/
-RESULTS_DIR = os.path.join(ROOT, "results", "judged")
 STATIC_DIR = os.path.join(HERE, "static")
+
+
+USE_S3 = os.environ.get("STEERFLOW_USE_S3", "false").lower() == "true"
+
+if USE_S3:
+    import boto3
+
+    S3_ENDPOINT = os.environ["STEERFLOW_S3_ENDPOINT"]
+    S3_BUCKET = os.environ["STEERFLOW_S3_BUCKET"]
+    S3_PREFIX = os.environ.get("STEERFLOW_S3_PREFIX", "results/")
+    s3 = boto3.client("s3", endpoint_url=S3_ENDPOINT)
+else:
+    RESULTS_DIR = os.environ.get("STEERFLOW_RESULTS_DIR", os.path.join(ROOT, "results", "judged"))
+
 
 import logging
 logging.basicConfig(
@@ -23,9 +36,17 @@ def create_app():
 
     @app.route("/")
     def index():
-        results_dir = RESULTS_DIR if "STEERFLOW_RESULTS_DIR" not in os.environ else os.environ["STEERFLOW_RESULTS_DIR"]
-        files = [f for f in os.listdir(results_dir) if f.endswith(".csv")]
-        logger.info(f"Pulling results from {results_dir} (found {len(files)} results)")
+        if USE_S3:
+            response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=S3_PREFIX)
+            files = [
+                obj["Key"]
+                for obj in response.get("Contents", [])
+                if obj["Key"].endswith(".csv")
+            ]
+            files = [key[len(S3_PREFIX):] for key in files]  # strip prefix for display
+        else:
+            files = [f for f in os.listdir(RESULTS_DIR) if f.endswith(".csv")]
+        logger.info(f"Pulling results from {RESULTS_DIR} (found {len(files)} results)")
         return render_template("index.html", files=files)
 
     @app.route("/columns", methods=["POST"])

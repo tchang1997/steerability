@@ -15,12 +15,12 @@ dependencies = [
     "beartype",
     "click",
     "flask",
+    "gunicorn",
     "huggingface_hub[cli]",
     "nltk==3.9.1",
     "numpy<2.0",
     "openai==1.77.0",
     "pandas==2.2.3",
-    "plotly",
     "requests==2.32.3",
     "ruamel.yaml",
     "rich",
@@ -36,6 +36,16 @@ dependencies = [
     "sammo @ git+https://github.com/tchang1997/sammo.git@main",
     "pylats @ git+https://github.com/tchang1997/pylats.git@main"
 
+]
+
+[project.optional-dependencies]
+web = [
+    "flask",
+    "pandas",
+    "gunicorn",
+    "boto3",
+    "numpy<2.0",
+    "scipy"
 ]
 
 [project.scripts]
