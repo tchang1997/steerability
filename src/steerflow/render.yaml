@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: steerflow-app
+    env: python
+    buildCommand: pip install -r web-requirements.txt
+    startCommand: gunicorn -b 0.0.0.0:$PORT steerflow.wsgi:app
