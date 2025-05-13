@@ -45,20 +45,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
-def cached_list_objects():
+def cached_list_csvs():
     logger.info(f"Fetching object list from R2 for bucket: {BUCKET_NAME}")
-    response = s3_client.list_objects_v2(Bucket=BUCKET_NAME)
-    return [obj["Key"] for obj in response.get("Contents", []) if obj["Key"].endswith(".csv")]
+    response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix="csv/")
+
+    contents = response.get("Contents", [])
+    csv_keys = []
+    for obj in contents:
+        key = obj["Key"]
+        if key.endswith(".csv") and key.startswith("csv/"):
+            csv_keys.append(key[len("csv/"):])
+    return csv_keys
 
 @lru_cache(maxsize=128)
 def get_cached_object(filename: str):
-    logger.info(f"Fetching r2://{filename}")
+    logger.info(f"Fetching object r2://{filename}")
     return s3_client.get_object(Bucket=BUCKET_NAME, Key=filename)["Body"].read()
 
-def get_df(filename):
+def get_df(filename: str):
     if USE_R2:
-        logger.info(f"Reading result CSV: r2://{filename}")
-        obj = get_cached_object(filename)
+        key = f"csv/{filename}"
+        logger.info(f"Reading result CSV: r2://{key}")
+        obj = get_cached_object(key)
         df = pd.read_csv(BytesIO(obj), index_col=0)
     else:
         results_path = os.path.join(RESULTS_DIR, filename)
@@ -66,13 +74,27 @@ def get_df(filename):
         df = pd.read_csv(results_path, index_col=0)
     return df
 
+def get_json(filename: str):
+    json_filename = filename.replace(".csv", ".json")  # normalize once
+    if USE_R2:
+        key = f"json/{json_filename}"
+        logger.info(f"Reading result JSON: r2://{key}")
+        obj = get_cached_object(key)
+        steer_stats = json.loads(obj.decode("utf-8"))
+    else:
+        json_path = os.path.join(JSON_DIR, json_filename.replace(".csv", ".json"))
+        logger.info(f"Reading result JSON from local: {json_path}")
+        with open(json_path) as f:
+            steer_stats = json.load(f)
+    return steer_stats
+
 def create_app():
     app = Flask(__name__, static_folder=os.path.join(HERE, "static"), static_url_path="/static")
 
     @app.route("/")
     def index():
         if USE_R2:
-            files = cached_list_objects()
+            files = cached_list_csvs()
             results_dir = f"r2://{BUCKET_NAME}"
         else:
             results_dir = RESULTS_DIR
@@ -107,28 +129,14 @@ def create_app():
     @app.route("/summary", methods=["POST"])
     def get_steerability_printout():
         filename = request.json["filename"]
-        json_path = os.path.join(JSON_DIR, filename.replace(".csv", ".json"))
-
-        if not os.path.exists(json_path):
-            return jsonify({"summary_html": "<pre style='color:red;'>Summary file not found.</pre>"}), 404
-
-        with open(json_path) as f:
-            steer_stats = json.load(f)
-
+        steer_stats = get_json(filename)
         summary_html = print_steerability_summary(steer_stats, stdout=False, return_html=True)
         return jsonify({"summary_html": summary_html})
     
     @app.route("/steerability_values", methods=["POST"])
     def steerability_values():
         filename = request.json["filename"]
-        json_path = os.path.join(JSON_DIR, filename.replace(".csv", ".json"))
-
-        if not os.path.exists(json_path):
-            return jsonify({"error": "File not found"}), 404
-
-        with open(json_path) as f:
-            stats = json.load(f)
-
+        stats = get_json(filename)
         steer_stats = stats["steerability"]
         return jsonify({
             "steering_error": steer_stats["steering_error"]["raw"],
