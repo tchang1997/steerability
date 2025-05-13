@@ -1,5 +1,7 @@
+boto3
+botocore
+flask
+gunicorn
 numpy
 pandas
 scipy
-flask
-gunicorn

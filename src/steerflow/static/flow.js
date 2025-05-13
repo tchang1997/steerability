@@ -1,8 +1,34 @@
+function computeSummary(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const median = sorted[Math.floor(sorted.length * 0.5)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  const iqr = q3 - q1;
+  const yTop = 1.1 * max;
+
+  return {
+    min: min.toFixed(3),
+    q1: q1.toFixed(3),
+    median: median.toFixed(3),
+    q3: q3.toFixed(3),
+    max: max.toFixed(3),
+    iqr: iqr.toFixed(3),
+    yTop: yTop
+  };
+}
+
 $("#fileSelect").change(function () {
     const file = $(this).val();
     if (!file) return;
-    $("#filename").val(file);
-  
+    $("#filename").val(file); 
+    
+    $("#fileStatusText")
+    .text("Loading file...")
+    .removeClass("done error");
+    $("#fileSpinnerContainer").css("display", "flex");
+
     $.post({
       url: "/columns",
       contentType: "application/json",
@@ -18,8 +44,190 @@ $("#fileSelect").change(function () {
           $("#xcol").val(cols[0]);
           $("#ycol").val(cols[cols.length - 1]);  // pick the "last" one
         }
+        $("#fileStatusText")
+        .text("Done")
+        .addClass("done");
+      },
+      error: function () {
+        $("#fileStatusText")
+          .text("Failed to load.")
+          .addClass("error");
+      },
+      complete: function () {
+        // Optionally fade out after a short delay
+        setTimeout(() => {
+          $("#fileSpinnerContainer").css("display", "none");;
+        }, 1000);
       }
     });
+
+    $.post({
+      url: "/summary",
+      contentType: "application/json",
+      data: JSON.stringify({ filename: file }),
+      success: function (data) {
+        $("#summary-panel").html(data.summary_html).show();
+      }
+    });
+
+    $.post({
+      url: "/steerability_values",
+      contentType: "application/json",
+      data: JSON.stringify({ filename: file }),
+      success: function (data) {
+        const steerStats = computeSummary(data["steering_error"]);
+        const miscalStats = computeSummary(data["miscalibration"]);
+        const orthoStats = computeSummary(data["orthogonality"]);
+
+        const x1Center = 0.125;  // domain: [0, 0.25]
+        const x2Center = 0.505;  // domain: [0.38, 0.63]
+        const x3Center = 0.88;   // domain: [0.76, 1.0]
+
+
+        Plotly.newPlot("plotly-container", [
+          {
+            type: "violin",
+            y: data["steering_error"],
+            name: "Steering Error",
+            xaxis: "x1",
+            yaxis: "y1",
+            line: { color: "#ffff99" },
+            fillcolor: "rgba(255, 255, 153, 0.5)",
+            box: { visible: true },
+            meanline: { visible: false },
+            opacity: 0.7,
+            spanmode: "hard",
+            points: true,
+            hoverinfo: "text",
+            hoveron: "all",
+            hovertemplate:
+            `Min: ${steerStats.min}<br>` +
+            `Q1: ${steerStats.q1}<br>` +
+            `Median: ${steerStats.median}<br>` +
+            `Q3: ${steerStats.q3}<br>` +
+            `Max: ${steerStats.max}<extra></extra>` 
+          },
+          {
+            type: "violin",
+            y: data["miscalibration"],
+            name: "Miscalibration",
+            xaxis: "x2",
+            yaxis: "y2",
+            line: { color: "#00ffff" },
+            fillcolor: "rgba(0, 255, 255, 0.5)",
+            box: { visible: true },
+            meanline: { visible: false },
+            opacity: 0.7,
+            spanmode: "hard",
+            points: true,
+            hoverinfo: "text",
+            hoveron: "all",
+            hovertemplate:
+            `Min: ${miscalStats.min}<br>` +
+            `Q1: ${miscalStats.q1}<br>` +
+            `Median: ${miscalStats.median}<br>` +
+            `Q3: ${miscalStats.q3}<br>` +
+            `Max: ${miscalStats.max}<extra></extra>`
+          },
+          {
+            type: "violin",
+            y: data["orthogonality"],
+            name: "Orthogonality",
+            xaxis: "x3",
+            yaxis: "y3",
+            line: { color: "#ff66cc" },
+            fillcolor: "rgba(255, 102, 204, 0.5)",
+            box: { visible: true },
+            meanline: { visible: false },
+            opacity: 0.7,
+            spanmode: "hard",
+            points: true,
+            hoverinfo: "text",
+            hoveron: "all",
+            hovertemplate:
+            `Min: ${orthoStats.min}<br>` +
+            `Q1: ${orthoStats.q1}<br>` +
+            `Median: ${orthoStats.median}<br>` +
+            `Q3: ${orthoStats.q3}<br>` +
+            `Max: ${orthoStats.max}<extra></extra>`
+          },
+          {
+            type: "scatter",
+            x: ["Steering Error"],
+            y: [steerStats.yTop],
+            text: [`${steerStats.median}<br>(${steerStats.iqr})`],
+            mode: "text",
+            textposition: "top center",
+            textfont: {
+              family: "monospace",
+              size: 12,
+              color: "#ffff99"
+            },
+            showlegend: false,
+            hoverinfo: "skip",
+            xaxis: "x1",
+            yaxis: "y1",
+          },
+          {
+            type: "scatter",
+            x: ["Miscalibration"],
+            y: [miscalStats.yTop],
+            text: [`${miscalStats.median}<br>(${miscalStats.iqr})`],
+            mode: "text",
+            textposition: "top center",
+            textfont: {
+              family: "monospace",
+              size: 12,
+              color: "#00ffff"
+            },
+            showlegend: false,
+            hoverinfo: "skip",
+            xaxis: "x2",
+            yaxis: "y2"
+          },
+          {
+            type: "scatter",
+            x: ["Orthogonality"],
+            y: [orthoStats.yTop],
+            text: [`${orthoStats.median}<br>(${orthoStats.iqr})`],
+            mode: "text",
+            textposition: "top center",
+            textfont: {
+              family: "monospace",
+              size: 12,
+              color: "#ff66cc"
+            },
+            showlegend: false,
+            hoverinfo: "skip",
+            xaxis: "x3",
+            yaxis: "y3"
+          }
+          
+        ], {
+          grid: { rows: 1, columns: 3, pattern: "independent" },
+          yaxis: { title: "Steering Error", gridcolor: "#333", range: [0, steerStats.yTop * 1.2]},
+          yaxis2: { title: "Miscalibration", gridcolor: "#333", range: [0, miscalStats.yTop * 1.2] },
+          yaxis3: { title: "Orthogonality", gridcolor: "#333", range: [0, orthoStats.yTop * 1.2] },
+          xaxis: { domain: [0, 0.25], showticklabels: false, type: "category"},
+          xaxis2: { domain: [0.38, 0.63], showticklabels: false, type: "category" },
+          xaxis3: { domain: [0.76, 1], showticklabels: false, type: "category" },
+          font: { color: "#eee", family: "monospace" },
+          paper_bgcolor: "#181818",
+          plot_bgcolor: "#181818",
+          margin: { t: 20 },
+          legend: {
+            orientation: "h",  
+            yanchor: "bottom",
+            y: -0.2,            
+            xanchor: "center",
+            x: 0.5,
+            itemwidth: 35,
+          }
+        });
+        
+      }
+    });
+    
   });
 
 let showSourcePoints = true;
@@ -95,7 +303,7 @@ let canvasElt;
 function setup() {
   textFont('Courier New');
 
-  const canvas = createCanvas(800, 840); 
+  const canvas = createCanvas(700, 735); 
   canvas.parent("flow-canvas");
   canvasElt = canvas.elt;
   frameRate(60);
@@ -393,4 +601,5 @@ function startGifCapture() {
   capturing = true;
   updateExportButtonState();
   captureFrameCount = 0;
+
 }

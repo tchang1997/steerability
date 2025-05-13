@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, jsonify
 from functools import lru_cache
 from io import BytesIO
+import json
 import os
 import pandas as pd
 
-from steerability.utils.result_utils import STEERING_GOALS
+from steerability.utils.result_utils import STEERING_GOALS, print_steerability_summary
 from steerflow.plotting_utils import grab_subspace, export_vector_field
 
 HERE = os.path.abspath(os.path.dirname(__file__))  # steerflow/
@@ -33,7 +34,7 @@ if USE_R2:
     )
 else:
     RESULTS_DIR = os.environ.get("STEERFLOW_RESULTS_DIR", os.path.join(ROOT, "results", "judged"))
-
+    JSON_DIR = os.environ.get("STEERFLOW_JSON_DIR", os.path.join(ROOT, "results", "steerability_metrics"))
 
 import logging
 logging.basicConfig(
@@ -42,6 +43,12 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+@lru_cache(maxsize=1)
+def cached_list_objects():
+    logger.info(f"Fetching object list from R2 for bucket: {BUCKET_NAME}")
+    response = s3_client.list_objects_v2(Bucket=BUCKET_NAME)
+    return [obj["Key"] for obj in response.get("Contents", []) if obj["Key"].endswith(".csv")]
 
 @lru_cache(maxsize=128)
 def get_cached_object(filename: str):
@@ -65,12 +72,7 @@ def create_app():
     @app.route("/")
     def index():
         if USE_R2:
-            response = s3_client.list_objects_v2(Bucket=BUCKET_NAME)
-            files = [
-                obj["Key"]
-                for obj in response.get("Contents", [])
-                if obj["Key"].endswith(".csv")
-            ]
+            files = cached_list_objects()
             results_dir = f"r2://{BUCKET_NAME}"
         else:
             results_dir = RESULTS_DIR
@@ -101,6 +103,38 @@ def create_app():
         y1 = df[f"target_{y}"].tolist()
         text = df.get("tooltip", [""] * len(x0))
         return jsonify({"x0": x0, "y0": y0, "x1": x1, "y1": y1, "text": text})
+    
+    @app.route("/summary", methods=["POST"])
+    def get_steerability_printout():
+        filename = request.json["filename"]
+        json_path = os.path.join(JSON_DIR, filename.replace(".csv", ".json"))
+
+        if not os.path.exists(json_path):
+            return jsonify({"summary_html": "<pre style='color:red;'>Summary file not found.</pre>"}), 404
+
+        with open(json_path) as f:
+            steer_stats = json.load(f)
+
+        summary_html = print_steerability_summary(steer_stats, stdout=False, return_html=True)
+        return jsonify({"summary_html": summary_html})
+    
+    @app.route("/steerability_values", methods=["POST"])
+    def steerability_values():
+        filename = request.json["filename"]
+        json_path = os.path.join(JSON_DIR, filename.replace(".csv", ".json"))
+
+        if not os.path.exists(json_path):
+            return jsonify({"error": "File not found"}), 404
+
+        with open(json_path) as f:
+            stats = json.load(f)
+
+        steer_stats = stats["steerability"]
+        return jsonify({
+            "steering_error": steer_stats["steering_error"]["raw"],
+            "miscalibration": steer_stats["miscalibration"]["raw"],
+            "orthogonality": steer_stats["orthogonality"]["raw"],
+        })
     
     @app.route("/generate_flow", methods=["POST"])
     def generate_flow():

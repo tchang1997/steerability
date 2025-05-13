@@ -1,19 +1,13 @@
 from argparse import ArgumentParser
 from pathlib import Path
-from rich import print
-from rich.panel import Panel
-from rich.table import Table
-from rich.console import Group
-
 import pandas as pd
 
 from steerability.llm_launcher import launch_llm 
 from steerability.steerability_metrics import main_steerability_evaluation
 from steerability.steerability_runners import launch_steerability_eval, run_interactive_llm_as_judge
-from steerability.utils.config_utils import load_yaml, has_negprompt
+from steerability.utils.config_utils import load_yaml
 from steerability.utils.io_utils import safe_json_dump, safe_to_csv
-
-from typing import Optional
+from steerability.utils.result_utils import add_run_info_to_stats, print_steerability_summary
 
 import logging
 logger = logging.getLogger(__name__)
@@ -72,56 +66,6 @@ def run_judge_phase(judged_path, judge_cfg, probe, api_config, redo, skip_intera
         safe_to_csv(reviewed, judged_path)
     return reviewed
 
-def print_steerability_summary(cfg: dict, judge_cfg: dict, steer_stats: dict, max_panel_width: Optional[int] = 60):
-    total_responses = steer_stats["data"]["n_total"]
-
-    # === Header Panel ===
-    header_lines = [
-        f"[bold]Model:[/bold] {cfg['model_id']}",
-        f"[bold]Prompting strategy:[/bold] {cfg['prompt_strategy']}" +
-        (" [dim](w/ neg. prompt)[/dim]" if has_negprompt(cfg) else ""),
-        f"[bold]Probe:[/bold] {cfg['probe']}",
-        f"[bold]# of total responses:[/bold] {total_responses}",
-    ]
-    header = Panel("\n".join(header_lines), title="STEERABILITY REPORT", border_style="cyan", width=max_panel_width)
-
-    # === Judge Panel ===
-    judge_panel = None
-    if judge_cfg is not None:
-        def pct(n): return f"{n} ({n / total_responses * 100:.2f}%)"
-
-        judge_lines = [
-            f"[bold]Judge model:[/bold] {judge_cfg['model']}",
-            f"[bold]# of valid responses:[/bold] {pct(steer_stats['data']['n_grounded'])}",
-            f"[bold]# of LLM-flagged responses:[/bold] {pct(steer_stats['data']['n_flagged'])}",
-            f"[bold]# of overruled responses:[/bold] {pct(steer_stats['data']['n_overruled'])}",
-        ]
-        judge_panel = Panel("\n".join(judge_lines), title="INTERACTIVE JUDGING", border_style="magenta", width=max_panel_width)
-
-    # === Metrics Table ===
-    table = Table(title="STEERABILITY METRICS", show_header=True, header_style="bold green", width=max_panel_width)
-    table.add_column("Metric", style="bold")
-    table.add_column("Median (IQR)", justify="right")
-
-    def fmt(metric):
-        m = steer_stats["steerability"][metric]["median"]
-        s = steer_stats["steerability"][metric]["iqr"]
-        return f"{m:.3f} ({s:.3f})"
-
-    table.add_row("Steering Error", fmt("steering_error"))
-    table.add_row("Miscalibration", fmt("miscalibration"))
-    table.add_row("Orthogonality", fmt("orthogonality"))
-
-    # === Final stacked layout ===
-    elements = [header]
-    if judge_panel:
-        elements.append(judge_panel)
-    elements.append(table)
-
-    print(Group(*elements))
-
-
-
 if __name__ == '__main__': 
     args = get_args()
     cfg = load_yaml(args.config)
@@ -159,6 +103,7 @@ if __name__ == '__main__':
         )
 
     steer_stats = main_steerability_evaluation(raw_probe, not args.skip_judge, uvicorn_cfg["goal_dimensions"])
-    print_steerability_summary(cfg, judge_cfg, steer_stats)
+    steer_stats = add_run_info_to_stats(cfg, judge_cfg, steer_stats)
+    print_steerability_summary(steer_stats)
     safe_json_dump(steer_stats, final_metrics_path, indent=4)
  
