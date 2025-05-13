@@ -37,7 +37,7 @@ def is_openai_model(model_name: str) -> bool:
 
 def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = False):
     env = os.environ.copy()
-    env["NCCL_P2P_DISABLE"] = "1"
+    env["PYTHONUNBUFFERED"] = "1"  # flush logs immediately
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env["CUDA_VISIBLE_DEVICES"] = os.environ["CUDA_VISIBLE_DEVICES"]
         logger.info(f"Setting CUDA visible devices for vLLM instance to {env['CUDA_VISIBLE_DEVICES']}")
