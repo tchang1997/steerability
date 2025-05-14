@@ -2,12 +2,15 @@
 
 Welcome to the official open-source evaluation framework for measuring steerability in LLMs. 
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
-[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm.svg)](https://huggingface.co/datasets/tchang97/steerbench)
+[Website](https://steerability.org/) | [Demo (research preview)](https://steerability.onrender.com/) | [Dataset](https://huggingface.co/datasets/tchang97/steerbench) 
 
 ![Steerflow Demo](src/steerflow/preview.gif)
 
 *demo via [Steerflow](https://steerability.onrender.com/)*
+
+
 
 *If you are interested in replicating the empirical analyses of our paper more closely, please consult `./src/steerability/REPLICATION.md`!*
 
@@ -58,10 +61,10 @@ This repo is very early stage and likely will change without notice. Issues and 
 
 ## Common issues
 
-**Q:** The script just outputs `Waiting for vLLM to start`. Is that normal?
+**Q:** The script just outputs `Waiting for vLLM to start`. Is that normal?\
 **A:** If you're downloading or using a large model, it can take a while for the download/weight loading to complete. Check the log files (`tail -f logs/[PID]-vllm.*`) for the full logging output, and if it's on a download/weight-loading step, that's the issue. 
 
-**Q:** I'm sure I've downloaded the model and it still won't load after >30 min. -- how can I fix this?
+**Q:** I'm sure I've downloaded the model and it still won't load after >30 min. -- how can I fix this?\
 **A:** First, check the logs. You might see:
 * Something about a bad request due to context length -> decrease `max_model_len` in `config/vllm_defaults/openai_server.yml` and try again
 * Out of memory issues -> Try changing `gpu_memory_utilization` in `config/vllm_defaults/openai_server.yml` and try again, or set `CUDA_VISIBLE_DEVICES=...` to use multiple GPUs.
@@ -70,7 +73,7 @@ This repo is very early stage and likely will change without notice. Issues and 
 Note that we've most extensively tested this script for single-GPU models — multi-GPU models can be a little finnicky, but you can try:
 * Setting `NCCL_P2P_DISABLE=1` explicitly. 
 * Try launching the server manually via `vllm serve` directly in your terminal.
-* `vllm serve` runs fine -> our problem — please (https://github.com/tchang1997/steerability/issues)[file an issue] with the name of the model you're trying to run and the command you used
+* `vllm serve` runs fine -> our problem — please [file an issue](https://github.com/tchang1997/steerability/issues) with the name of the model you're trying to run and the command you used
 * `vllm serve` also fails -> check your settings, or potentially a vLLM bug.
 
 
