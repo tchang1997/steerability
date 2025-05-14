@@ -333,7 +333,7 @@ function setup() {
   //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
   const stops = [  
     { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.0)}, // Faded sea-cyan
-    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.0)}, // Cerulean
+    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.1)}, // Cerulean
     { stop: 0.2, color: "#4605EC" }, // Indigo
     { stop: 0.4, color: "#8705E4" }, // Purple
     { stop: 0.7, color: "#FF06C1" }, // Hot Pink
@@ -357,11 +357,11 @@ function getColorFromStops(normMag, stops) {
 }
 
 
-const FLOW_SPEED = 0.012;
+const FLOW_SPEED = 0.018;
 
 function compressedFade(t) {
   const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
-  return Math.pow(raw, 1.5);  // steeper falloff
+  return Math.pow(raw, 1.6);  // steeper falloff
 }
 
 let xAxisLabel = "";
@@ -410,7 +410,8 @@ function draw() {
 
         const a1 = compressedFade(t1);
         const a2 = compressedFade(t2);
-        const norm = Math.max(Math.pow(a1, 1) + Math.pow(a2, 1), 1e-5);
+        const cnorm_pow = 0.8
+        const norm = Math.max(Math.pow(a1, cnorm_pow) + Math.pow(a2, cnorm_pow), 1e-5);
 
         const alpha1 = a1 / norm;
         const alpha2 = a2 / norm;
@@ -562,8 +563,8 @@ function generatePlot() {
             particles = [];
             let maxMag = 0;
             for (let i = 0; i < field.x.length; i++) {
-            const u = field.u[i] * 3.5;
-            const v = field.v[i] * 3.5;
+            const u = field.u[i] * 2;
+            const v = field.v[i] * 2;
             const mag = Math.sqrt(u * u + v * v);
             maxMag = Math.max(maxMag, mag);
 
