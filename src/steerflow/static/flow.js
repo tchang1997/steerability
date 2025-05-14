@@ -19,6 +19,25 @@ function computeSummary(values) {
   };
 }
 
+function enhanceFileSelectWithSearch() {
+  const select = document.getElementById("fileSelect");
+  if (!select) {
+    console.warn("fileSelect not found in DOM");
+    return;
+  }
+  new Choices(document.getElementById("fileSelect"), {
+    searchEnabled: true,
+    shouldSort: false,
+    itemSelectText: "",
+    position: 'auto',         // let it float over content
+    classNames: {
+      containerOuter: 'choices custom-choices'  // optional for tweaking CSS
+    }
+  });
+
+}
+
+
 $("#fileSelect").change(function () {
     const file = $(this).val();
     if (!file) return;
@@ -532,9 +551,6 @@ function generatePlot() {
   
     showStatus("Generating flow...");
 
-    flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
-    plotted_xcol = `${xcol} (specified)`
-    plotted_ycol = `${ycol} (unspecified)`
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
@@ -567,6 +583,10 @@ function generatePlot() {
             showStatus("Flow loaded.", "green");
             flow_success = true;
             updateExportButtonState();
+
+            flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
+            plotted_xcol = `${xcol} (specified)`
+            plotted_ycol = `${ycol} (unspecified)`
         });
       },
       error: () => {
@@ -603,3 +623,5 @@ function startGifCapture() {
   captureFrameCount = 0;
 
 }
+
+// document.addEventListener("DOMContentLoaded", enhanceFileSelectWithSearch);

@@ -7,6 +7,8 @@
   <script src=" https://cdn.jsdelivr.net/npm/p5@2.0.1/lib/p5.min.js "></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src=" https://cdn.jsdelivr.net/npm/ccapture.js-npmfixed@1.1.0/build/CCapture.all.min.js "></script>
+  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/styles/choices.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js"></script> -->
   <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,41 +199,94 @@
     }
 
     .details-box {
-    background-color: #333;
-    border-radius: 12px;
-    border: 1px solid #555;
-    padding: 1em;
-    margin-top: 1em;
-    font-size: 0.9em;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-    max-width: 570px;
-  }
+      background-color: #333;
+      border-radius: 12px;
+      border: 1px solid #555;
+      padding: 1em;
+      margin-top: 1em;
+      font-size: 0.9em;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      max-width: 570px;
+    }
 
-  details[open] summary::after {
-    transform: rotate(90deg);
-  }
+    details[open] summary::after {
+      transform: rotate(90deg);
+    }
 
-  details summary {
-    cursor: pointer;
-    font-weight: bold;
-    transition: color 0.3s ease;
-  }
+    details summary {
+      cursor: pointer;
+      font-weight: bold;
+      transition: color 0.3s ease;
+    }
 
-  details summary:hover {
-    color: #999;
-  }
+    details summary:hover {
+      color: #999;
+    }
 
-  details > *:not(summary) {
-    opacity: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: opacity 0.3s ease, max-height 0.5s ease;
-  }
+    details>*:not(summary) {
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: opacity 0.3s ease, max-height 0.5s ease;
+    }
 
-  details[open] > *:not(summary) {
-    opacity: 1;
-    max-height: 500px; /* arbitrary large value to allow space */
-  }
+    details[open]>*:not(summary) {
+      opacity: 1;
+      max-height: 500px;
+      /* arbitrary large value to allow space */
+    }
+
+    .choices[data-type*="select-one"] {
+      padding-bottom: 0;
+    }
+
+    /* Override Choices.js container to match dark select look */
+    .choices.custom-choices {
+      background-color: #222;
+      color: #fff;
+      font-size: 1rem;
+      width: 30ch;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+
+    /* Remove weird inner padding from fake input */
+    .choices__inner {
+      background-color: #222;
+      border: none;
+      color: #fff;
+      padding: 0;
+      min-height: 1.5lh;
+    }
+
+    /* Dropdown styling */
+    .choices__list--dropdown, .choices__list--item {
+      background-color: #222;
+      border: 1px solid #444;
+      border-radius: 4px;
+      position: absolute !important;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      padding: 4px !important;
+    }
+
+    .choices__input {
+      background-color: #888 !important ;
+    }
+
+
+    /* Option hover/focus */
+    .choices__item--selectable.is-highlighted {
+      background-color: #333;
+      color: #f6a192;
+    }
+
+    /* Hover/focus state for main box */
+    .choices.custom-choices.is-focused,
+    .choices.custom-choices:hover {
+      border-color: #f6a192;
+      box-shadow: 0 0 6px #f6a192;
+    }
   </style>
 </head>
 
@@ -251,7 +306,7 @@
     color: #ddd;
   ">
     <div id="selectbox-row" ,
-      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 1.5rem; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 88px;">
+      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 1.5rem; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 88px; max-width: 1200px;">
       <div style="display: flex; flex-direction: row; align-items: flex-start;">
         <label>Choose file:
           <select id="fileSelect" class="dark-select">
@@ -358,11 +413,12 @@
       <details class="details-box" style="margin-top: 1em; font-size: 0.9em;">
         <summary><strong>What does this diagram show?</strong></summary>
         <p style="margin-top: 1em; line-height: 1.2lh">
-          This flow diagram shows how model outputs shift in goal-space when we steer them along specific goal 
-          dimensions. The x-axis represents the attribute we asked the model to change, while the y-axis 
-          shows how much an unintended attribute changed as a side effect. Arrows trace the average movement 
+          This flow diagram shows how model outputs shift in goal-space when we steer them along specific goal
+          dimensions. The x-axis represents the attribute we asked the model to change, while the y-axis
+          shows how much an unintended attribute changed as a side effect. Arrows trace the average movement
           in this 2D space. The colors encode velocity, transitioning from <i style="color: #00D5F8">cooler</i> to
-          <i style="color: #FF0845">warmer</i> colors as speed increases. Ideally, vectors point mostly along the x-axis,
+          <i style="color: #FF0845">warmer</i> colors as speed increases. Ideally, vectors point mostly along the
+          x-axis,
           indicating clean, disentangled control along goal dimensions.
           <br><br>
           Learn more about how we measure steerability in our <a style="color: #f6a192" href="">paper</a>!
@@ -370,7 +426,7 @@
       </details>
     </div>
     <!--Column 2: Dashboard-->
-     <div id="dash-column">
+    <div id="dash-column">
       <h2>Steerability dashboard</h2>
       <h3>Run info</h3>
 
@@ -412,16 +468,20 @@
       <details class="details-box" style="margin-top: 1em; font-size: 0.9em; max-width: 612px">
         <summary><strong>What are these metrics?</strong></summary>
         <p style="margin-top: 1em; line-height: 1.2lh">
-          This plot shows the three steerabiltiy metrics proposed in our 
-          <a style="color: #f6a192" href="">steerability measurement framework</a>: 
-          <ul>
-            <li><strong style="color: #ffff99; opacity: 0.8">Steering error (yellow):</strong> how far outputs deviate from the target,</li>
-            <li><strong style="color: #00ffff; opacity: 0.8">Miscalibration (magenta):</strong> errors in the direction of intended movement, and </li>
-            <li><strong style="color: #ff66cc; opacity: 0.8">Orthogonality (blue):</strong> errors outside the direction of intended movement. </li>
-          </ul>
-          <i>Lower</i> values are better across all three (minimum: 0). The box and violin shapes show distributional spread
-          across our steerability probe (see panel), and the numbers on top indicate the median and interquartile 
-          range (IQR; 75th - 25th percentile).</p>
+          This plot shows the three steerabiltiy metrics proposed in our
+          <a style="color: #f6a192" href="">steerability measurement framework</a>:
+        <ul>
+          <li><strong style="color: #ffff99; opacity: 0.8">Steering error (yellow):</strong> how far outputs deviate
+            from the target,</li>
+          <li><strong style="color: #00ffff; opacity: 0.8">Miscalibration (magenta):</strong> errors in the direction of
+            intended movement, and </li>
+          <li><strong style="color: #ff66cc; opacity: 0.8">Orthogonality (blue):</strong> errors outside the direction
+            of intended movement. </li>
+        </ul>
+        <i>Lower</i> values are better across all three (minimum: 0). The box and violin shapes show distributional
+        spread
+        across our steerability probe (see panel), and the numbers on top indicate the median and interquartile
+        range (IQR; 75th - 25th percentile).</p>
       </details>
 
     </div>
@@ -435,10 +495,10 @@
         <b>Team:</b> Trenton Chang, Tobias Schnabel, Adith Swaminathan, and Jenna Wiens
       </div> -->
       <div class="footer-links">
-        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability">Github</a> | 
-        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">Report an Issue</a> | 
-        <a style="color: #f6a192" href="https://huggingface.co/datasets/tchang97/steerbench">Dataset</a> | 
-        <a style="color: #f6a192" href="">Paper</a> | 
+        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability">Github</a> |
+        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">Report an Issue</a> |
+        <a style="color: #f6a192" href="https://huggingface.co/datasets/tchang97/steerbench">Dataset</a> |
+        <a style="color: #f6a192" href="">Paper</a> |
         <a style="color: #f6a192" href="https://steerability.org">Website</a>
       </div>
     </div>
