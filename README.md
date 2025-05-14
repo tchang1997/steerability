@@ -1,8 +1,11 @@
 # Measuring the steerability of large language models
 
-This is the official repo for measuring steerability in LLMs. 
+Welcome to the official open-source evaluation framework for measuring steerability in LLMs. 
+
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm.svg)](https://huggingface.co/datasets)
 
 ![Steerflow Demo](src/steerflow/preview.gif)
+*demo via [Steerflow](https://steerability.onrender.com/)*
 
 *If you are interested in replicating the empirical analyses of our paper more closely, please consult `./src/steerability/REPLICATION.md`!*
 
@@ -34,18 +37,40 @@ In the provided example at `config/qwen3_example.yml`, we run the steerability p
 steerflow launch --port 12347
 ```
 
-Supported inference providers:
+We host a lightweight demo of `steerflow` [here](https://steerability.onrender.com/) as well. You can visit [our website](https://steerability.org/) for a little more info about getting started with this repo.  
+
+**Supported inference providers:**
 * OpenAI API
 * vLLM self-hosted models
 
-In theory, any vLLM-able model should work with this repo. Here's what we've tested: 
+In theory, any vLLM-able model should work with this repo. Here's what we've tried: 
 * OpenAI API-accessible models (GPT series, o1/o3)
 * Llama3
 * Deepseek-R1 (distilled)
 * Qwen3
 * Gemma3
+* Phi4
+* Mistral3
 
 This repo is very early stage and likely will change without notice. Issues and contributions welcome! 
+
+## Common issues
+
+**Q:** The script just outputs `Waiting for vLLM to start`. Is that normal?
+**A:** If you're downloading or using a large model, it can take a while for the download/weight loading to complete. Check the log files (`tail -f logs/[PID]-vllm.*`) for the full logging output, and if it's on a download/weight-loading step, that's the issue. 
+
+**Q:** I'm sure I've downloaded the model and it still won't load after >30 min. -- how can I fix this?
+**A:** First, check the logs. You might see:
+* Something about a bad request due to context length -> decrease `max_model_len` in `config/vllm_defaults/openai_server.yml` and try again
+* Out of memory issues -> Try changing `gpu_memory_utilization` in `config/vllm_defaults/openai_server.yml` and try again, or set `CUDA_VISIBLE_DEVICES=...` to use multiple GPUs.
+* Some torch inductor bug about not being able to import objects -> Try setting `TMPDIR=...` to a directory where you have `rwx` permissions.
+
+Note that we've most extensively tested this script for single-GPU models — multi-GPU models can be a little finnicky, but you can try:
+* Setting `NCCL_P2P_DISABLE=1` explicitly. 
+* Try launching the server manually via `vllm serve` directly in your terminal.
+* `vllm serve` runs fine -> our problem — please (https://github.com/tchang1997/steerability/issues)[file an issue] with the name of the model you're trying to run and the command you used
+* `vllm serve` also fails -> check your settings, or potentially a vLLM bug.
+
 
 ## Steerability from scratch
 
@@ -82,7 +107,7 @@ This'll get you a CSV that can be directly used in `steer_eval.py` (replace the 
 |-----------------------------------------------------|---------------|
 | End-to-end evaluation                               | ✅ Fully supported + documented |
 | Baseline set of prompt strategies                   | ✅ Fully supported + documented |
-| Skip LLM as judge (set-and-forget mode)             | ⚠️ Planned |
+| Skip LLM as judge (set-and-forget mode)             | ✅ Supported  |
 | Generating steerability probes from custom datasets | ⚠️ Supported but undocumented  |
 | Custom goals                                         | ⚠️ Supported but undocumented |
 | Custom prompt strategies                            | ⚠️ Supported but undocumented  |

@@ -74,7 +74,7 @@
     select.dark-select:hover,
     select.dark-select:focus {
       border-color: #f6a192;
-      box-shadow: 0 0 4px #f6a192;
+      box-shadow: 0 0 6px #f6a192;
     }
 
     button {
@@ -195,6 +195,43 @@
         transform: rotate(360deg);
       }
     }
+
+    .details-box {
+    background-color: #333;
+    border-radius: 12px;
+    border: 1px solid #555;
+    padding: 1em;
+    margin-top: 1em;
+    font-size: 0.9em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    max-width: 570px;
+  }
+
+  details[open] summary::after {
+    transform: rotate(90deg);
+  }
+
+  details summary {
+    cursor: pointer;
+    font-weight: bold;
+    transition: color 0.3s ease;
+  }
+
+  details summary:hover {
+    color: #999;
+  }
+
+  details > *:not(summary) {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.5s ease;
+  }
+
+  details[open] > *:not(summary) {
+    opacity: 1;
+    max-height: 500px; /* arbitrary large value to allow space */
+  }
   </style>
 </head>
 
@@ -214,7 +251,7 @@
     color: #ddd;
   ">
     <div id="selectbox-row" ,
-      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 2.5rem; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 64px;">
+      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 1.5rem; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 88px;">
       <div style="display: flex; flex-direction: row; align-items: flex-start;">
         <label>Choose file:
           <select id="fileSelect" class="dark-select">
@@ -224,7 +261,7 @@
             {% endfor %}
           </select>
           <div id="fileSpinnerContainer"
-            style="display: none; align-items: flex-start; flex-direction: row; gap: 10px; margin-left: 8px;">
+            style="display: none; align-items: flex-start; flex-direction: row; gap: 10px; margin-left: 8px; margin-top: 4px;">
 
             <div class="spinner"></div>
             <div id="fileStatusText" class="status-callout">
@@ -259,7 +296,7 @@
 
 
   <!-- Row 2: Dashboard -->
-  <div style="display: flex; align-items: flex-start; gap: 4rem; padding-bottom: 4em;">
+  <div style="display: flex; align-items: flex-start; gap: 6rem; padding-bottom: 1em;">
     <!--Column 1: Visualizer-->
     <div id="flow-column">
       <h2>Goal-space flow visualizer</h2>
@@ -318,12 +355,27 @@
         </div>
       </div>
       <div id="flow-canvas"></div>
+      <details class="details-box" style="margin-top: 1em; font-size: 0.9em;">
+        <summary><strong>What does this diagram show?</strong></summary>
+        <p style="margin-top: 1em; line-height: 1.2lh">
+          This flow diagram shows how model outputs shift in goal-space when we steer them along specific goal 
+          dimensions. The x-axis represents the attribute we asked the model to change, while the y-axis 
+          shows how much an unintended attribute changed as a side effect. Arrows trace the average movement 
+          in this 2D space. The colors encode velocity, transitioning from <i style="color: #00D5F8">cooler</i> to
+          <i style="color: #FF0845">warmer</i> colors as speed increases. Ideally, vectors point mostly along the x-axis,
+          indicating clean, disentangled control along goal dimensions.
+          <br><br>
+          Learn more about how we measure steerability in our <a style="color: #f6a192" href="">paper</a>!
+        </p>
+      </details>
     </div>
     <!--Column 2: Dashboard-->
-    <div id="dash-column">
-      <h2>Steerability report</h2>
+     <div id="dash-column">
+      <h2>Steerability dashboard</h2>
+      <h3>Run info</h3>
+
       <div id="summary-panel" style="
-        min-height: 20lh;
+        min-height: 12lh;
         width: 75ch;
         background-color: #111;
         font-family: monospace;
@@ -340,7 +392,7 @@
       </div>
       <hr>
 
-      <h3>Steerability metrics</h3>
+      <h3>Aggregate steerability metrics</h3>
       <div id="plotly-container" style="
         background-color: #111;
         border-radius: 10px;
@@ -357,10 +409,24 @@
         margin-top: 0;
       ">
       </div>
-
+      <details class="details-box" style="margin-top: 1em; font-size: 0.9em; max-width: 612px">
+        <summary><strong>What are these metrics?</strong></summary>
+        <p style="margin-top: 1em; line-height: 1.2lh">
+          This plot shows the three steerabiltiy metrics proposed in our 
+          <a style="color: #f6a192" href="">steerability measurement framework</a>: 
+          <ul>
+            <li><strong style="color: #ffff99; opacity: 0.8">Steering error (yellow):</strong> how far outputs deviate from the target,</li>
+            <li><strong style="color: #00ffff; opacity: 0.8">Miscalibration (magenta):</strong> errors in the direction of intended movement, and </li>
+            <li><strong style="color: #ff66cc; opacity: 0.8">Orthogonality (blue):</strong> errors outside the direction of intended movement. </li>
+          </ul>
+          <i>Lower</i> values are better across all three (minimum: 0). The box and violin shapes show distributional spread
+          across our steerability probe (see panel), and the numbers on top indicate the median and interquartile 
+          range (IQR; 75th - 25th percentile).</p>
+      </details>
 
     </div>
   </div>
+
 
   <hr>
   <footer class="footer">

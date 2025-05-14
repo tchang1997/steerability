@@ -130,7 +130,7 @@ def create_app():
     def get_steerability_printout():
         filename = request.json["filename"]
         steer_stats = get_json(filename)
-        summary_html = print_steerability_summary(steer_stats, stdout=False, return_html=True)
+        summary_html = print_steerability_summary(steer_stats, stdout=False, return_html=True, include_table=False)
         return jsonify({"summary_html": summary_html})
     
     @app.route("/steerability_values", methods=["POST"])

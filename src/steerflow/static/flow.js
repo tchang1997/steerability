@@ -45,7 +45,7 @@ $("#fileSelect").change(function () {
           $("#ycol").val(cols[cols.length - 1]);  // pick the "last" one
         }
         $("#fileStatusText")
-        .text("Done")
+        .text("Done!")
         .addClass("done");
       },
       error: function () {
@@ -303,7 +303,7 @@ let canvasElt;
 function setup() {
   textFont('Courier New');
 
-  const canvas = createCanvas(700, 735); 
+  const canvas = createCanvas(600, 630); 
   canvas.parent("flow-canvas");
   canvasElt = canvas.elt;
   frameRate(60);

@@ -48,7 +48,13 @@ def add_run_info_to_stats(cfg: dict, judge_cfg: dict, steer_stats: dict):
     steer_stats['run'] = run_info
     return steer_stats
 
-def print_steerability_summary(steer_stats: dict, max_panel_width: Optional[int] = 60, stdout: Optional[bool] = True, return_html: Optional[bool] = False):
+def print_steerability_summary(
+        steer_stats: dict,
+        max_panel_width: Optional[int] = 60,
+        stdout: Optional[bool] = True,
+        return_html: Optional[bool] = False,
+        include_table: Optional[bool] = True,
+    ):
     total_responses = steer_stats["data"]["n_total"]
 
     # === Header Panel ===
@@ -92,7 +98,8 @@ def print_steerability_summary(steer_stats: dict, max_panel_width: Optional[int]
     elements = [header]
     if judge_panel:
         elements.append(judge_panel)
-    elements.append(table)
+    if include_table:
+        elements.append(table)
     group = Group(*elements)
     if stdout:
         print(group)
