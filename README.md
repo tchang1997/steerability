@@ -2,7 +2,8 @@
 
 Welcome to the official open-source evaluation framework for measuring steerability in LLMs. 
 
-[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm.svg)](https://huggingface.co/datasets)
+
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm.svg)](https://huggingface.co/datasets/tchang97/steerbench)
 
 ![Steerflow Demo](src/steerflow/preview.gif)
 
