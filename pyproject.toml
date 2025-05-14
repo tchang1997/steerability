@@ -30,7 +30,7 @@ dependencies = [
     "torch==2.6.0",
     "transformers==4.51.3",
     "uvicorn==0.34.2",
-    "vllm==0.8.5.post1",
+    "vllm==0.8.5",
 
     # GitHub dependency
     "sammo @ git+https://github.com/tchang1997/sammo.git@main",

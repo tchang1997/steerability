@@ -18,6 +18,6 @@ torch==2.5.1
 tqdm
 transformers
 ruamel.yaml==0.18.6
-vllm==0.8.4
+vllm==0.8.5
 wandb==0.19.6
 git+https://github.com/huggingface/trl.git@a325a0eec5b646f3f87a1284abbc9b9790a4e442
