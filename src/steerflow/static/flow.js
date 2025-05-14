@@ -214,14 +214,14 @@ $("#fileSelect").change(function () {
           font: { color: "#eee", family: "monospace" },
           paper_bgcolor: "#181818",
           plot_bgcolor: "#181818",
-          margin: { t: 20 },
+          margin: { t: 10, b: 10 },
           legend: {
             orientation: "h",  
             yanchor: "bottom",
-            y: -0.2,            
+            y: -0.3,            
             xanchor: "center",
             x: 0.5,
-            itemwidth: 35,
+            itemwidth: 30,
           }
         });
         

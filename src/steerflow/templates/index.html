@@ -259,7 +259,7 @@
 
 
   <!-- Row 2: Dashboard -->
-  <div style="display: flex; align-items: flex-start; gap: 4rem;">
+  <div style="display: flex; align-items: flex-start; gap: 4rem; padding-bottom: 4em;">
     <!--Column 1: Visualizer-->
     <div id="flow-column">
       <h2>Goal-space flow visualizer</h2>
@@ -319,14 +319,12 @@
       </div>
       <div id="flow-canvas"></div>
     </div>
-    <div class="v-separator"></div>
     <!--Column 2: Dashboard-->
     <div id="dash-column">
       <h2>Steerability report</h2>
       <div id="summary-panel" style="
         min-height: 20lh;
-        width: 65ch;
-        flex: 1;
+        width: 75ch;
         background-color: #111;
         font-family: monospace;
         font-size: 0.85rem;
@@ -338,7 +336,7 @@
         white-space: pre;
         padding: 1em;
         text-align: center;
-      ">Waiting for file.
+      ">
       </div>
       <hr>
 
@@ -348,14 +346,37 @@
         border-radius: 10px;
         border: 1px solid #333;
         box-shadow: 0 0 5px rgba(0, 0, 0, 0.4);
-        min-height: 15lh;
-        width: 60ch;
+        min-height: 19lh;
+        overflow-x: auto;
+        white-space: pre;
+        width: 75ch;
+        font-family: monospace;
+        text-align: center;
+        padding: 0.5em 1em;
+        font-size: 0.85rem;
+        margin-top: 0;
       ">
       </div>
 
 
     </div>
   </div>
+
+  <hr>
+  <footer class="footer">
+    <div class="footer-content" style="font-size: 10pt;">
+      <!-- <div class="footer-names">
+        <b>Team:</b> Trenton Chang, Tobias Schnabel, Adith Swaminathan, and Jenna Wiens
+      </div> -->
+      <div class="footer-links">
+        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability">Github</a> | 
+        <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">Report an Issue</a> | 
+        <a style="color: #f6a192" href="https://huggingface.co/datasets/tchang97/steerbench">Dataset</a> | 
+        <a style="color: #f6a192" href="">Paper</a> | 
+        <a style="color: #f6a192" href="https://steerability.org">Website</a>
+      </div>
+    </div>
+  </footer>
 
   <script src="{{ url_for('static', filename='flow.js') }}"></script>
 </body>
