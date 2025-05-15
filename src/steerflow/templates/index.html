@@ -79,6 +79,10 @@
       box-shadow: 0 0 6px #f6a192;
     }
 
+    #steer-logo:hover {
+      box-shadow: 0 0 6px #f6a192
+    }
+
     button {
       background-color: #f6a192;
       /* soft pastel coral */
@@ -126,7 +130,7 @@
     canvas {
       display: block;
       margin: 0;
-      border-radius: 8px;
+      border-radius: 16px;
     }
 
     select:disabled,
@@ -241,6 +245,7 @@
     }
 
     .choices {
+      margin-top: 8px !important;
       margin-bottom: 4px !important;
     }
 
@@ -311,14 +316,15 @@
 
 <body>
   <div style="display: flex; flex-direction: row; align-items: center; gap: 1em;">
-    <a href="https://steerability.org" style="padding-bottom: 8px;">
-      <img src="./static/steer_logo.png" alt="steerability.org" width="48px" />
+    <a id="steer-logo" href="https://steerability.org" style="margin-bottom: 8px;">
+      <img src="./static/steer_logo.png" alt="steerability.org" width="48px;" />
     </a>
     <h1 style="font-size: 3rem; margin: 0.5em 0; margin-top: 0.2em;">SteerFlow</h1>
   </div>
 
 
   <p><i>visualizing how large language models steer through goal-space</i></p>
+
   <hr>
   <h2>Select model & goal-space</h2>
   <div id="controls" style="
@@ -332,7 +338,7 @@
     color: #ddd;
   ">
     <div id="selectbox-row" ,
-      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 4em; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 92px; max-width: 1200px;">
+      style="display: flex; flex-direction: row; align-items: flex-start; padding: 1rem; gap: 4em; border: 2px solid #f6a192; border-radius: 12px; background-color: #181818; min-height: 100px; max-width: 1200px;">
       <div style="display: flex; flex-direction: row; align-items: flex-start;">
         <label>Choose file:
           <select id="fileSelect" class="dark-select">
@@ -398,7 +404,7 @@
       <h3>Controls</h3>
 
       <div style="display: flex; flex-direction: column; gap: 0.5rem; 
-        margin-bottom: 1rem; padding: 16px; border: 1px solid #f6a192;
+        margin-bottom: 1rem; padding: 16px 24px; border: 1px solid #f6a192;
         border-radius: 10px; background-color: #181818;">
         <div style="display: flex; flex-direction: row; gap: 1.5rem; align-items: center; margin-top: 0.5em">
           <button id="export-btn" onclick="startGifCapture()" disabled>
@@ -487,16 +493,11 @@
         background-color: #111;
         border-radius: 10px;
         border: 1px solid #333;
-        box-shadow: 0 0 5px rgba(0, 0, 0, 0.4);
-        min-height: 19lh;
-        overflow-x: auto;
-        white-space: pre;
         width: 75ch;
         font-family: monospace;
-        text-align: center;
         padding: 0.5em 1em;
         font-size: 0.85rem;
-        margin-top: 0;
+        height: 380px;
       ">
       </div>
       <details class="details-box" style="margin-top: 1em; font-size: 0.9em; max-width: 612px">
@@ -532,7 +533,8 @@
         <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">Report an Issue</a> |
         <a style="color: #f6a192" href="https://huggingface.co/datasets/tchang97/steerbench">Dataset</a> |
         <a style="color: #f6a192" href="">Paper</a> |
-        <a style="color: #f6a192" href="https://steerability.org">Website</a>
+        <a style="color: #f6a192" href="https://steerability.org">Website</a> |
+        Copyright (c) 2025 Trenton Chang. License: <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/blob/main/LICENSE">MIT</a>.
       </div>
     </div>
   </footer>

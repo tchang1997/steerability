@@ -371,11 +371,11 @@ function getColorFromStops(normMag, stops) {
 }
 
 
-const FLOW_SPEED = 0.015;
+const FLOW_SPEED = 0.012;
 
 function compressedFade(t) {
   const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
-  return Math.pow(raw, 0.5);  // steeper falloff
+  return Math.pow(raw, 2);  // steeper falloff
 }
 
 let xAxisLabel = "";
@@ -393,7 +393,7 @@ function draw() {
     }
     try {
       noStroke();
-      fill(15, 15, 20, 2);  // dark fade
+      fill(15, 15, 20, 5);  // dark fade
       rect(0, 0, width, height);
 
       drawAxes();
