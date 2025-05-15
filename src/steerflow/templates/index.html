@@ -407,6 +407,14 @@
         margin-bottom: 1rem; padding: 16px 24px; border: 1px solid #f6a192;
         border-radius: 10px; background-color: #181818;">
         <div style="display: flex; flex-direction: row; gap: 1.5rem; align-items: center; margin-top: 0.5em">
+          <!-- <div style="display: flex; flex-direction: column; gap: 0rem; align-items: flex-start; max-width: 100px">
+            <label for="plotting-mode-slider" style="font-size: 12px; font-style: italic">Plotting mode</label>
+            <input type="range" id="plotting-mode-slider" min="0" max="1" step="1" value="0">
+            <div style="display: flex; justify-content: space-between; font-size: 10px; font-style: italic">
+              <span>normal</span>
+              <span>side-effect</span>
+            </div>
+          </div> -->
           <button id="export-btn" onclick="startGifCapture()" disabled>
             Export to WebM
           </button>
@@ -503,14 +511,14 @@
       <details class="details-box" style="margin-top: 1em; font-size: 0.9em; max-width: 612px">
         <summary>What are these metrics?</summary>
         <p style="margin-top: 1em; line-height: 1.2lh">
-          This plot shows the three steerabiltiy metrics proposed in our
+          This plot shows the three steerability metrics proposed in our
           <a style="color: #f6a192" href="">steerability measurement framework</a>:
         <ul>
           <li><strong style="color: #ffff99; opacity: 0.8">Steering error (yellow):</strong> how far outputs deviate
             from the target,</li>
-          <li><strong style="color: #00ffff; opacity: 0.8">Miscalibration (magenta):</strong> errors in the direction of
+          <li><strong style="color: #00ffff; opacity: 0.8">Miscalibration (cyan):</strong> errors in the direction of
             intended movement, and </li>
-          <li><strong style="color: #ff66cc; opacity: 0.8">Orthogonality (blue):</strong> errors outside the direction
+          <li><strong style="color: #ff66cc; opacity: 0.8">Orthogonality (magenta):</strong> errors outside the direction
             of intended movement. </li>
         </ul>
         <i>Lower</i> values are better across all three (minimum: 0). The box and violin shapes show distributional
@@ -525,9 +533,6 @@
   <hr>
   <footer class="footer">
     <div class="footer-content" style="font-size: 10pt;">
-      <!-- <div class="footer-names">
-        <b>Team:</b> Trenton Chang, Tobias Schnabel, Adith Swaminathan, and Jenna Wiens
-      </div> -->
       <div class="footer-links">
         <a style="color: #f6a192" href="https://github.com/tchang1997/steerability">Github</a> |
         <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">Report an Issue</a> |

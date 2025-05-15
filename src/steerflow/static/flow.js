@@ -441,7 +441,11 @@ function draw() {
           const px = map(x, 0, 1, paddingLeft, width - paddingRight);
           const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
 
-          let idx = Math.floor(p.mag / maxMag * 100);
+          if (color_mode == "magnitude") {
+            let idx = Math.floor(p.mag / maxMag * 100);
+          } else { // side-effect
+            let idx = Math.floor(p.mag === 0 ? 0 : Math.abs(p.v / maxMag) * 100); // 100 sin(theta)
+          }
           const baseColor = flowColors[idx]
           baseColor.setAlpha(alpha * 255);
 

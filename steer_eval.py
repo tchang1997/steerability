@@ -105,5 +105,8 @@ if __name__ == '__main__':
     steer_stats = main_steerability_evaluation(raw_probe, not args.skip_judge, uvicorn_cfg["goal_dimensions"])
     steer_stats = add_run_info_to_stats(cfg, judge_cfg, steer_stats)
     print_steerability_summary(steer_stats)
-    safe_json_dump(steer_stats, final_metrics_path, indent=4)
+    if not Path(final_metrics_path).is_file():
+        safe_json_dump(steer_stats, final_metrics_path, indent=4)
+    else:
+        logging.info(f"Skipping JSON save: results already found at {final_metrics_path}.")
  
