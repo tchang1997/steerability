@@ -2,29 +2,18 @@
 <html lang="en">
 
 <head>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NJQQG8KVHB"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-NJQQG8KVHB');
-    </script>
   <meta charset="utf-8">
-  <title>Measuring steerability in LLMs</title>
+  <title>Jekyll Serif Theme</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" type="image/png" href="/images/illustrations/steer_logo.png">
+  <link rel="icon" type="image/png" href="/images/favicon-32x32.svg">
   <!-- Google Fonts CDN -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
   <!-- Self host font -->
   <!-- <link rel="preload" href="/assets/fonts/playfair-display.woff2" as="font" type="font/woff2" crossorigin> -->
-  <link href="style.css" rel="stylesheet">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Arvo:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
-
+  <link href="/assets/css/style.css" rel="stylesheet">
+  
   <meta name="description" content="Jekyll Serif contains content types for a typical business website. The theme is fully responsive, blazing fast and artfully illustrated." />
   <meta property="og:title" content="Jekyll Serif Theme"/>
   <meta property="og:type" content="website"/>
@@ -34,177 +23,235 @@
   <meta name="twitter:card" content="summary"/>
   <meta name="twitter:site" content=""/>
   <meta name="twitter:creator" content=""/>
-  <style>
-
-  body, p {
-    font-family: 'Arvo', serif;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
-  }
-
-  .dark-banner {
-    background-color: #333;
-    color: white;
-    width: 100%;
-    text-align: center;
-    padding: 2rem 1rem;
-  }
-    .install-container {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 0 1rem;
-    }
-
-    .install-block {
-      background-color: #333;  /* dark grey */
-      color: #fff;             /* white text */
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 0.95rem;
-      overflow-x: auto;
-      padding: 1.5em 1.1em;
-    }
-
-    .code-column {
-      max-width: 520px;
-      width: 100%;
-    }
-  </style>
 
 </head>
 
 <body class='page page-home'>
+  <div id="main-menu-mobile" class="main-menu-mobile">
+  
+  <ul>
+    
+    <li class="">
+      <a href="/services/">Services</a>
+    </li>
+    
+    <li class="">
+      <a href="/team/">Team</a>
+    </li>
+    
+    <li class="">
+      <a href="/about/">About</a>
+    </li>
+    
+    <li class="">
+      <a href="/contact/">Contact</a>
+    </li>
+    
+  </ul>
+</div>
 
   <div id="wrapper" class="wrapper">
-    <div class='header', style="height: 64px; background-color: #820931; align-items: center">
-  <div class="container" style="justify-content: flex-start">
-      <div class="logo">
-        <a href="/"><img width=32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
+    <div class='header'>
+  <div class="container">
+    <div class="logo">
+      <a href="/"><img width="32px" height="32px" alt="Steerability evaluation" src="/images/illustrations/steer_logo.png" /></a>
     </div>
-     <div class="logo-mobile">
-         <a href="/"><img width=32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
+    <div class="logo-mobile">
+      <a href="/"><img width="32px" height="32px" alt="Steerability evaluation" src="/images/illustrations/steer_logo.png" /></a>
     </div>
-    <h1 style="color: white; font-size: 1.8em; margin: 0 0.5em; text-align: left"><a href="/" style="color: white; text-decoration: none;">steerability.org</a></h1>
     <div id="main-menu" class="main-menu">
   
-
+  <ul>
+    
+    <li class="">
+      <a href="/services/">Services</a>
+    </li>
+    
+    <li class="">
+      <a href="/team/">Team</a>
+    </li>
+    
+    <li class="">
+      <a href="/about/">About</a>
+    </li>
+    
+    <li class="">
+      <a href="/contact/">Contact</a>
+    </li>
+    
+  </ul>
 </div>
 
-</div>
+    <button id="toggle-main-menu-mobile" class="hamburger hamburger--slider" type="button" aria-label="Mobile Menu">
+  <span class="hamburger-box">
+    <span class="hamburger-inner"></span>
+  </span>
+</button>
+  </div>
 </div>
 
-<div class="intro" style="
-  position: relative;
-  width: 100%;
-  height: 550px;
-  background-image: url('/images/illustrations/steer_demo.gif');
-  background-size: cover;
-  background-position: center;
-  border-radius: 0px;
-  overflow: hidden;
-">
-  <!-- Overlay to darken the background -->
-  <div style="
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.4);  /* adjust darkness here */
-    z-index: 0;
-  "></div>
-
-  <!-- Content stays on top -->
-  <div class="container" style="position: relative; z-index: 1;">
+    <div class="intro">
+  <div class="container">
     <div class="row justify-content-start">
-      <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1" style="width: 67%">
-        <h1 id="serif---a-jekyll-business-theme" style="color: #f0f0f0; font-family: Playfair Display, serif">
-          Steerability: an on-ramp on the road to alignment.
-        </h1>
-        <p style="color: #eeeeee; font-family: Arvo, serif">
-          We've heard the pitch before: LLMs can do Olympiad math, follow complex instructions, and write like Hemingway. Modern LLMs are impressive, but are they really steerable towards user goals?
-          <br> <br>
-          Learn more about our new, open-source evaluation framework for studying this question:  measuring the steerability of LLMs.
-        </p>
-        <div style="display: flex; gap: 2em; flex-direction: row">
-	<a href="https://github.com/tchang1997/steerability" style="
-	      display: inline-block;
-	      margin-top: 1.5rem;
-	      padding: 0.75rem 1.5rem;
-	      background-color: #800000; /* maroon */
-	      color: #fff;
-	      text-decoration: none;
-	      border-radius: 6px;
-	      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-	      transition: background 0.2s ease;
-	    " onmouseover="this.style.backgroundColor='#a00000'"
-	      onmouseout="this.style.backgroundColor='#800000'">
-	      Get started
-	</a>
-        <a href="https://steerability.onrender.com/" style="
-	      display: inline-block;
-	      margin-top: 1.5rem;
-	      padding: 0.75rem 1.5rem;
-	      background-color: #800000; /* maroon */
-	      color: #fff;
-	      text-decoration: none;
-	      border-radius: 6px;
-	      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-	      transition: background 0.2s ease;
-	    " onmouseover="this.style.backgroundColor='#a00000'"
-	      onmouseout="this.style.backgroundColor='#800000'">
-	      Visualizer (Demo)
-	</a>
-        </div>
+      <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1">
+        <h1 id="serif---a-jekyll-business-theme">Serif - A Jekyll Business Theme.</h1>
+
+<p>Serif contains content types for a typical business website. The theme is fully responsive, blazing fast and artfully illustrated.</p>
+
+        
+          <div class="call">
+  <div class="call-box-top">
+    
+        <div class="call-phone"><strong>Phone: </strong> 1800 123 000 </div>
+    
+    
+    <div class="call-email"><strong>Email: </strong>
+      <a href="mailto:jekyllserif@example.com">
+        jekyllserif@example.com
+      </a>
+    </div>
+    
+  </div>
+    
+      <div class="call-box-bottom">
+        <a href="contact" class="button">Contact</a>
       </div>
+    
+</div>
+
+        
+      </div>
+      
+      <div class="col-12 col-md-5 col-lg-6 order-1 order-md-2 position-relative">
+        <img alt="Jekyll Serif Theme" class="intro-image intro-image-absolute intro-image-hide-mobile" src="images/illustrations/pointing.svg" />
+      </div>
+      
     </div>
   </div>
 </div>
 
-
-
-<div class="strip strip-grey" style="background-color: #f9eded;">
-  <div class="container pt-4 pb-4" style="max-width: 1000px">
-    <div class="row justify-content-center">
-
-     <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2"> 
-        <div style="border-radius: 8px; padding: 32px 20px" class="feature">
-          
-          <div class="feature-image"><img alt="Github logo" src="/images/social/github-mark.svg" width="80" height="80" /></div>
-          
-          <h2 class="feature-title" style="font-family: Playfair Display, serif"><a href="https://github.com/tchang1997/steerability" alt="Steerability official Github repo">Code</a></h2>
-          <div class="feature-content" style="font-family: Arvo, serif">Is your favorite LLM steerable? Try out our evaluation framework for measuring steerability in LLMs.</div>
+<div class="strip">
+  <div class="container pt-6 pb-6 pb-md-10">
+    <div class="row justify-content-start">
+      
+      
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/accounting/">Accounting</a>
+            </h2>
+            <p>Financial accounting (or financial accountancy) is the field of accounting concerned with the sum...</p>
+          </div>
         </div>
       </div>
       
-    <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2">
-        <div style="border-radius: 8px; padding: 32px 20px" class="feature">
-          
-          <div class="feature-image"><img alt="Huggingface logo" src="/images/logo/hf-logo.svg" width="120" height="120" /></div>
-          
-          <h2 class="feature-title" style="font-family: Playfair Display, serif"><a href="https://huggingface.co/datasets/tchang97/steerbench/", alt="tchang97/steerbench">Data</a></h2>
-          <div class="feature-content" style="font-family: Arvo, serif">Download our steerability probes: benchmarks specifically designed to measure steerability.</div>
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/business-sales/">Business Sales</a>
+            </h2>
+            <p>Cyanee nec pedicis positi. Esse et diem forte quoque et ieiunia
+vixque dixit negari ullis stamina...</p>
+          </div>
         </div>
       </div>
-      <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2">
-        <div style="border-radius: 8px; padding: 32px 20px" class="feature">
-          
-          <div class="feature-image"><img alt="Demo" src="/images/logo/steerflow.ico" width="80" height="80" /></div>
-          
-          <h2 class="feature-title" style="font-family: Playfair Display, serif"><a href="https://steerability.onrender.com/">Demo</a></h2>
-          <div class="feature-content" style="font-family: Arvo, serif">Try out our steerability visualizer, and make your own flow diagrams of LLM "movement" in goal-space.</div>
+      
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/mergers/">Mergers</a>
+            </h2>
+            <p>Lorem markdownum aequalis strigis. Saetigeri iubeas, vultu huic alvum nondum
+de obside ut laniavi...</p>
+          </div>
         </div>
       </div>
-     <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2">
-        <div style="border-radius: 8px; padding: 32px 20px" class="feature">
-          
-          <div class="feature-image"><img alt="Paper logo" src="/images/logo/file-text.svg" width="64" height="64" /></div>
-          
-          <h2 class="feature-title" style="font-family: Playfair Display, serif"><a href="">Paper</a></h2>
-          <div class="feature-content" style="font-family: Arvo, serif">Learn about how we define steerability formally, and how we might improve steerability.</div>
+      
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/business-advisory/">Business Advisory</a>
+            </h2>
+            <p>Business advisory is the final tier of the accounting pyramid.
+
+</p>
+          </div>
         </div>
       </div>
+      
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/superannuation/">Superannuation</a>
+            </h2>
+            <p>Lorem markdownum aequalis strigis. Saetigeri iubeas, vultu huic alvum nondum
+de obside ut laniavi...</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-12 col-md-4 mb-1">
+        <div class="service service-summary">
+          <div class="service-content">
+            <h2 class="service-title">
+              <a href="/services/tax-preperation/">Tax Preperation</a>
+            </h2>
+            <p>Lorem markdownum Achaica revolutaque amore, penitus puppes nec furit,
+clipeus fatetur, mira inter...</p>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+    <div class="row justify-content-center">
+      <div class="col-auto">
+        <a class="button button-primary" href="/services">View All Services</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="strip strip-grey">
+  <div class="container pt-6 pb-6 pt-md-10 pb-md-10">
+    <div class="row justify-content-center">
+
+      
+      <div class="col-12 col-md-6 col-lg-4 mb-2">
+        <div class="feature">
+          
+          <div class="feature-image"><img alt="Free Consultation logo" src="/images/features/noun_branding_1885335.svg" width="80" height="80" /></div>
+          
+          <h2 class="feature-title">Free Consultation</h2>
+          <div class="feature-content">New clients receive an obligation free consultation.</div>
+        </div>
+      </div>
+      
+      <div class="col-12 col-md-6 col-lg-4 mb-2">
+        <div class="feature">
+          
+          <div class="feature-image"><img alt="Certified Accountants logo" src="/images/features/noun_The%20Process_1885341.svg" width="80" height="80" /></div>
+          
+          <h2 class="feature-title">Certified Accountants</h2>
+          <div class="feature-content">All members of our team are certified accountants.</div>
+        </div>
+      </div>
+      
+      <div class="col-12 col-md-6 col-lg-4 mb-2">
+        <div class="feature">
+          
+          <div class="feature-image"><img alt="Tax Compliance logo" src="/images/features/noun_3d%20modeling_1885342.svg" width="80" height="80" /></div>
+          
+          <h2 class="feature-title">Tax Compliance</h2>
+          <div class="feature-content">We stay up to date on the latest changes to the tax code.</div>
+        </div>
+      </div>
+      
 
     </div>
   </div>
@@ -212,172 +259,55 @@
 
 
   </div>
-
-
-  <div>
-<!--<section class="dark-banner">
-  <h1 style="text-align: center;">Using our Steerability Measurement Framework</h1>
-  <p>Install our package and start evaluating LLM steerability with just a few steps.</p>
-</section>-->
-
-<section style="background-color: #fff; padding: 3em 0; max-width: 1200px; margin: 0 auto;">
-    <h1>Quickstart</h1><hr>
-    <div class="install-container">
-<h2>Installation</h2>
-<p>We recommend creating a new virtual environment. We use the <a href="https://docs.astral.sh/uv/">uv</a> package manager to do so. 
-<section class="install-block">
-  <pre style="margin-bottom: 0"><code>uv venv /path/to/your/env/ --python 3.12.8 --seed # recommended version
-source /path/to/your/env/bin/activate
-git clone git@github.com:tchang1997/steerability.git
-uv pip install -e .
-bash initial_setup.sh # makes result directories, downloads auxiliary data</code></pre>
-</section>
-    </div>
-  </div>
-
-<div style="max-width: 1200px; margin: 0 auto; margin-bottom: 2em;">
-
-<h2>Usage</h2>
-<hr>
-  <!-- Step 1 -->
-
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
-    <div style="flex: 1 1 300px;">
-      <h3>1. Create a configuration file</h3>
-      <p>
-      Your config specifies which model to use, the prompt type, where to save results, and other parameters. We show an example config that you can use. We support both <a href="https://platform.openai.com/docs/models">OpenAI</a> and <a href="https://docs.vllm.ai/en/latest/models/supported_models.html">vLLM-supported models</a>!<br><br>For OpenAI models, provide the model endpoint (example: <code>gpt-4o-2024-08-06</code>). For vLLM models, provide the HuggingFace model ID (example: <code>google/gemma-3-1b-it</code>).
-    </p>
-    </div>
-    <div class="install-block code-column">
-      <pre style="margin: 0;"><code># Example config: config/my_favorite_model.yaml 
-model_id: "google/gemma-3-1b-it"
-probe: "./data/2025_06_steerbench_64x32.csv"
-# Direct + Negative Prompt
-prompt_strategy: "direct"
-inst_addons:
-  disambig: True
-seed: 42
-max_tokens: 4096
-rate_limit: 128
-text_gen_kwargs:
-  randomness: 0.0 # temperature
-  num_generations: 1
-# Saving
-save_as: "gemma_3_1b_results"
-</code></pre>
-    </div>
-  </div>
-  <hr>
-  <!-- Step 2 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
-    <div style="flex: 1 1 300px;">
-      <h3>2. Run the steerability evaluation script</h3>
-      <p>
-      From the repo root, use the following command to run a complete steerability evaluation.<br><br>You'll want to point <code>--api-config</code> to some file storing your API key in this format: <code>{"api-key": "sk-..."}</code>. 
-      </p>
-    </div>
-    <div class="install-block code-column">
-    <pre style="margin: 0;"><code>python steer_eval.py \
-    --config config/my_favorite_model.yaml \
-    --api-config /path/to/my/api_key</code></pre>
-    </div>
-  </div>
-  <hr>
-  <!-- Step 3 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
-    <div style="flex: 1 1 300px;">
-      <h3>3. Approve flagged completions (optional but recommended)</h3>
-      <p>
-      We recommend using LLM-as-a-judge to flag responses that may not be valid rewrites (<i>e.g.</i>, refusals). You’ll be prompted to confirm whether responses flagged by the model are acceptable rewrites by approving or overriding the LLM's reasoning (Yes/No) interactively.<br><br>We've truncated the text for easier reading here, but you'll see the complete rewritten and original texts during the actual evaluation.<br><br>You can skip this step by passing <code>--skip-interactive</code> when you launch <code>python steer_eval.py</code> Step 2.
-      </p>
-    </div>
-    <div  class="install-block code-column">
-      <pre style="margin: 0;"><code>┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
-┃ Original  ┃ Rewrite           ┃ Answer ┃ Reasoning        ┃
-┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ Cats are  │ Felines, part of  │ Yes    │ Same core idea   │
-│ animals.  │ Felidae, may be   │        │ with more formal │
-│ They can  │ pets or hunters…  │        │ wording.         │
-│ be pets…  │                   │        │                  │
-└───────────┴───────────────────┴────────┴──────────────────┘
->>> Approve reasoning? (yes/no):</code></pre>
-    </div>
-  </div>
-  <hr>
-  <!-- Step 4 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap;">
-    <div style="flex: 1 1 300px;">
-      <h3>4. View results</h3>
-      <p>
-        After filtering, you'll see a printout summarizing steering error, miscalibration, and side-effects.<br><br>This printout also includes information about the model and probe used, the prompting strategy, and the results of LLM-as-judge evaluation. The results are saved in a JSON file for later viewing as well. 
-      </p>
-    </div>
-    <div class="install-block code-column">
-      <pre style="margin: 0;"><code>╭────────────────── STEERABILITY REPORT ───────────────────╮
-│ Model: gpt-4.1-nano-2025-04-14                           │
-│ Prompting strategy: direct (w/ neg. prompt)              │
-│ Probe: ./data/2025_06_steerbench_64x32.csv               │
-│ # of total responses: 2048                               │
-╰──────────────────────────────────────────────────────────╯
-╭────────────────── INTERACTIVE JUDGING ───────────────────╮
-│ Judge model: meta-llama/Llama-3.1-8B-Instruct            │
-│ # of valid responses: 2048 (100.00%)                     │
-│ # of LLM-flagged responses: 0 (0.00%)                    │
-│ # of overruled responses: 0 (0.00%)                      │
-╰──────────────────────────────────────────────────────────╯
-                    STEERABILITY METRICS                    
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Metric                       ┃              Median (IQR) ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Steering Error               │             0.452 (0.239) │
-│ Miscalibration               │             0.556 (0.500) │
-│ Orthogonality                │             0.763 (0.338) │
-└──────────────────────────────┴───────────────────────────┘</code></pre>
-    </div>
-  </div>
-  <hr>
-<div style="display: flex; gap: 3em; flex-wrap: wrap;">
-  <div style="flex: 1 1 300px;">
-    <h3>5. Visualize how LLMs steer in goal-space (optional but fun!)</h3>
-    <p>
-    Use our packaged <a alt="SteerFlow" href="https://steerability.onrender.com/">Steerflow</a> application to generate and save animated vector flow diagrams of model behavior in different goal subspaces. Steerflow can help you explore where models consistently overshoot, undershoot, or induce side-effects. We host a lightweight demo <a alt="SteerFlow demo" href="https://steerability.onrender.com/">here</a> for preview purposes.<br><br>Here, we show an animated version of the reading difficulty-formality subspace measured on our steerability probe for Gemma3-1B. This flow diagram shows how the model "moves" texts on average in goal-space when we ask for changes in reading level, but not formality. <i>Blue</i> regions (less movement) indicate that the model doesn't really drift (good), while <i>red</i>  regions indicate more drift, with purple somewhere in between. 
-    </p>
-  </div>
-  <div class="code-column">
-      <div class="install-block">
-    <pre style="margin: 0;"><code>
-steerflow launch --port 12345
-# go to http://localhost:12345 in your browser</code></pre>
+  <div class="footer">
+  <div class="container">
+    <div class="row">
+      <div class="col-12">
+        <div class="footer-inner">
+          <h2 class="footer-title">Steerability evaluation</h2>
+          <ul>
+            
+            
+            <li class="active">
+              <a href="/">Home</a>
+            </li>
+            
+            <li class="">
+              <a href="/contact/">Contact</a>
+            </li>
+            
+          </ul>
+        </div>
       </div>
-    <div style="margin-top: 1em">
-    <h5>Flow diagram demo</h5>
-    <p style="font-size: 0.75em; line-height: 1.5em"><i>Measured in a reading difficulty (specified) + formality (unspecified) goal-space.
-        <br>Model: <a href="https://huggingface.co/google/gemma-3-1b-it">Gemma3-1B.</a></i><p>
-    <img src="/images/illustrations/steer_demo.gif" alt="Flow diagram demo" style="width: 100%; border-radius: 8px" />
     </div>
   </div>
 </div>
-</div>
-</section>
 
-
-<section style="background-color: #f8f8f8; padding: 2em 4em; text-align: left">
-  <p style="font-size: 0.9rem; color: #444; font-family: sans-serif">
-  <b>Our team:</b> <a href="https://trentonchang.org">Trenton Chang</a> (University of Michigan), <a href="https://www.microsoft.com/en-us/research/people/toschnab/">Tobias Schnabel</a> (Microsoft Research), <a href="https://scholar.google.com/citations?user=WNHLjp0AAAAJ&hl=fr">Adith Swaminathan</a> (Netflix), and <a href="https://wiens-group.engin.umich.edu/">Jenna Wiens</a> (University of Michigan). <br><b>Acknowledgements: </b>Special thanks to members of the <a href="https://wiens-group.engin.umich.edu">MLD3 Lab</a> (University of Michigan), the <a href="https://www.microsoft.com/en-us/research/group/ai-interaction-and-learning/">AI Interaction & Learning Group</a> (Microsoft Research), the <a href="https://research.netflix.com/research-area/machine-learning">Machine Learning & Inference Research Team</a> (Netflix) and the <a href="https://safegenaiworkshop.github.io/">NeurIPS Safe Generative AI</a> workshop for their helpful feedback on early versions of this work.
-  </p>
-</section>
-
-
-  <div class="sub-footer" style="background: rgb(111, 19, 62);">
+  <div class="sub-footer">
   <div class="container">
     <div class="row">
       <div class="col-12">
         <div class="sub-footer-inner">
           
-            
+            <div class="social">
+  
+    <a href="https://github.com/zerostaticthemes/jekyll-serif-theme" target="blank"><img src="/images/social/github.svg" title="Github" alt="Github" /></a>
+  
+    <a href="https://twitter.com/zerostaticio" target="blank"><img src="/images/social/twitter.svg" title="Twitter" alt="Twitter" /></a>
+  
+    <a href="https://facebook.com" target="blank"><img src="/images/social/facebook.svg" title="Facebook" alt="Facebook" /></a>
+  
+    <a href="mailto:ekyllserif@example.com " target="blank"><img src="/images/social/email.svg" title="Email" alt="Email" /></a>
+  
+    <a href="https://instagram.com" target="blank"><img src="/images/social/instagram.svg" title="Instagram" alt="Instagram" /></a>
+  
+    <a href="https://discord.com" target="blank"><img src="/images/social/discord.svg" title="Discord" alt="Discord" /></a>
+  
+</div>
+
           
           
-          <div class="copyright" style="font-family: sans-serif">Free Jekyll theme by <a class="zerostatic" href="https://www.zerostatic.io">www.zerostatic.io</a></div>
+          <div class="copyright">Free Jekyll theme by <a class="zerostatic" href="https://www.zerostatic.io">www.zerostatic.io</a></div>
           
         </div>
       </div>

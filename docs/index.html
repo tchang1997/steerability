@@ -125,7 +125,7 @@
         <p style="color: #eeeeee; font-family: Arvo, serif">
           We've heard the pitch before: LLMs can do Olympiad math, follow complex instructions, and write like Hemingway. Modern LLMs are impressive, but are they really steerable towards user goals?
           <br> <br>
-          Learn more about our new, open-source evaluation framework for studying this question:  measuring the steerability of LLMs.
+          Learn more here about our open-source evaluation framework for measuring the steerability of LLMs.
         </p>
         <div style="display: flex; gap: 2em; flex-direction: row">
 	<a href="https://github.com/tchang1997/steerability" style="
@@ -193,7 +193,7 @@
           <div class="feature-image"><img alt="Demo" src="/images/logo/steerflow.ico" width="80" height="80" /></div>
           
           <h2 class="feature-title" style="font-family: Playfair Display, serif"><a href="https://steerability.onrender.com/">Demo</a></h2>
-          <div class="feature-content" style="font-family: Arvo, serif">Try out our steerability visualizer, and make your own flow diagrams of LLM "movement" in goal-space.</div>
+          <div class="feature-content" style="font-family: Arvo, serif">Try out our steerability visualizer: see how LLMs "move" in goal-space in response to requests.</div>
         </div>
       </div>
      <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2">
@@ -245,7 +245,7 @@ bash initial_setup.sh # makes result directories, downloads auxiliary data</code
     <div style="flex: 1 1 300px;">
       <h3>1. Create a configuration file</h3>
       <p>
-      Your config specifies which model to use, the prompt type, where to save results, and other parameters. We show an example config that you can use. We support both <a href="https://platform.openai.com/docs/models">OpenAI</a> and <a href="https://docs.vllm.ai/en/latest/models/supported_models.html">vLLM-supported models</a>!<br><br>For OpenAI models, provide the model endpoint (example: <code>gpt-4o-2024-08-06</code>). For vLLM models, provide the HuggingFace model ID (example: <code>google/gemma-3-1b-it</code>).
+      Your config specifies which model to use, the prompt type, where to save results, and other parameters. We show an example config that you can use. We support both <a href="https://platform.openai.com/docs/models">OpenAI</a> and <a href="https://docs.vllm.ai/en/latest/models/supported_models.html">vLLM-supported models</a>!<br><br>For OpenAI models, provide the model endpoint (example: <code>gpt-4o-2024-08-06</code>). For vLLM models, provide the HuggingFace model ID (example: <code>google/gemma-3-1b-it</code>).<br><br>An example config is shown on the right, but we provide a few extra examples in the <a href="https://github.com/tchang1997/steerability/tree/main/config">repo</a> as well.
     </p>
     </div>
     <div class="install-block code-column">
