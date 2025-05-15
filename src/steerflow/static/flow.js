@@ -19,21 +19,27 @@ function computeSummary(values) {
   };
 }
 
+
+const choicesInstances = {};  // global or higher-scope object
 function enhanceFileSelectWithSearch() {
-  const select = document.getElementById("fileSelect");
-  if (!select) {
-    console.warn("fileSelect not found in DOM");
-    return;
-  }
-  new Choices(document.getElementById("fileSelect"), {
-    searchEnabled: true,
-    shouldSort: false,
-    itemSelectText: "",
-    position: 'auto',         // let it float over content
-    classNames: {
-      containerOuter: 'choices custom-choices'  // optional for tweaking CSS
+  selectIds = ["fileSelect", "xcol", "ycol"]
+  for (let itemId of selectIds) {
+    const select = document.getElementById(itemId);
+    if (!select) {
+      console.warn(itemId, "not found in DOM");
+      return;
     }
-  });
+    choicesInstances[itemId] = new Choices(document.getElementById(itemId), {
+      searchEnabled: true,
+      shouldSort: false,
+      itemSelectText: "",
+      noChoicesText: 'No choices available',
+      position: 'auto',        
+      classNames: {
+        containerOuter: 'choices custom-choices'  
+      }
+    });
+  }
 
 }
 
@@ -53,16 +59,23 @@ $("#fileSelect").change(function () {
       contentType: "application/json",
       data: JSON.stringify({ filename: file }),
       success: function (cols) {
-        $("#xcol").empty();
-        $("#ycol").empty();
-        cols.forEach(col => {
-          $("#xcol").append(`<option value="${col}">${col}</option>`);
-          $("#ycol").append(`<option value="${col}">${col}</option>`);
-        });
+        const newChoices = cols.map(col => ({
+          value: col,
+          label: col,
+          selected: false
+        }));
+        
         if (cols.length >= 2) {
-          $("#xcol").val(cols[0]);
-          $("#ycol").val(cols[cols.length - 1]);  // pick the "last" one
+          newChoices[0].selected = true;
+          newChoices[cols.length - 1].selected = true; // both marked; safe for separate selects
         }
+        
+        choicesInstances["xcol"].setChoices(newChoices, 'value', 'label', true);
+        choicesInstances["ycol"].setChoices(newChoices, 'value', 'label', true);
+        
+        // Then explicitly set the correct selection per select box
+        choicesInstances["xcol"].setChoiceByValue(cols[0]);
+        choicesInstances["ycol"].setChoiceByValue(cols[cols.length - 1]);
         $("#fileStatusText")
         .text("Done!")
         .addClass("done");
@@ -76,7 +89,8 @@ $("#fileSelect").change(function () {
         // Optionally fade out after a short delay
         setTimeout(() => {
           $("#fileSpinnerContainer").css("display", "none");;
-        }, 1000);
+        }, 500);
+        
       }
     });
 
@@ -257,10 +271,11 @@ $("#showSource").change(function () {
 });
 
 $("#flip-axes-btn").click(function () {
-  const x = $("#xcol").val();
-  const y = $("#ycol").val();
-  $("#xcol").val(y);
-  $("#ycol").val(x);
+  const x = choicesInstances["xcol"].getValue(true); // true = return value only
+  const y = choicesInstances["ycol"].getValue(true);
+
+  choicesInstances["xcol"].setChoiceByValue(y);
+  choicesInstances["ycol"].setChoiceByValue(x);
 });
 
 function showStatus(msg, color = "red") {
@@ -292,12 +307,11 @@ function cancelExport() {
   capturer = null;
 
   // Hide progress and reset button state
-  document.getElementById("exportProgressWrapper").style.display = "none";
+  document.getElementById("cancelExportBtn").style.visibility = "hidden";
   document.getElementById("exportProgressBar").style.width = "0%";
-  document.getElementById("exportProgressText").textContent = "";
+  document.getElementById("exportProgressText").textContent = "no export in progress";
 
   // Hide cancel button, re-enable export
-  document.getElementById("cancelExportBtn").style.display = "none";
   updateExportButtonState?.();
   loop();
 }
@@ -438,11 +452,7 @@ function draw() {
       if (capturing) {
         if (captureFrameCount === 0) {
           capturer.start();
-          document.getElementById("exportProgressWrapper").style.display = "block";
-          document.getElementById("exportProgressText").style.display = "block";
-          document.getElementById("cancelExportBtn").style.display = "block";
-
-
+          document.getElementById("cancelExportBtn").style.visibility = "visible";
         }
         requestAnimationFrame(draw);
         capturer.capture(canvasElt);
@@ -463,13 +473,11 @@ function draw() {
           updateExportButtonState();
 
           // reset progress bar
-          document.getElementById("exportProgressWrapper").style.display = "none";
-          document.getElementById("exportProgressText").style.display = "none";
-          document.getElementById("cancelExportBtn").style.display = "none";
+          document.getElementById("cancelExportBtn").style.visibility = "hidden";
 
 
           document.getElementById("exportProgressBar").style.width = "0%";
-          document.getElementById("exportProgressText").textContent = "";
+          document.getElementById("exportProgressText").textContent = "no export in progress";
         }
       }
     } catch (err) {
@@ -625,4 +633,4 @@ function startGifCapture() {
 
 }
 
-// document.addEventListener("DOMContentLoaded", enhanceFileSelectWithSearch);
+document.addEventListener("DOMContentLoaded", enhanceFileSelectWithSearch);
