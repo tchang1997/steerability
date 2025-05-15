@@ -346,8 +346,8 @@ function setup() {
 
   //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
   const stops = [  
-    { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.0)}, // Faded sea-cyan
-    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.1)}, // Cerulean
+    { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.2)}, // Faded sea-cyan
+    { stop: 0.05, color: lerpColor(color("#11B4F5"), color("#000000"), 0.0)}, // Cerulean
     { stop: 0.2, color: "#4605EC" }, // Indigo
     { stop: 0.4, color: "#8705E4" }, // Purple
     { stop: 0.7, color: "#FF06C1" }, // Hot Pink
@@ -371,26 +371,29 @@ function getColorFromStops(normMag, stops) {
 }
 
 
-const FLOW_SPEED = 0.018;
+const FLOW_SPEED = 0.015;
 
 function compressedFade(t) {
   const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
-  return Math.pow(raw, 1.6);  // steeper falloff
+  return Math.pow(raw, 0.5);  // steeper falloff
 }
 
 let xAxisLabel = "";
 let yAxisLabel = "";
+let reset_switch = false;
 function draw() {
     if (!running && !capturing) {
         background(15, 15, 20);
         drawAxes();
         return;
     }
+    if (reset_switch) {
+      background(0);
+      reset_switch = false;
+    }
     try {
-      // blendMode(ADD);  // luminous trails
       noStroke();
-      fill(15, 15, 20, 40);  // dark fade
-      //blendMode(BLEND);
+      fill(15, 15, 20, 2);  // dark fade
       rect(0, 0, width, height);
 
       drawAxes();
@@ -424,7 +427,7 @@ function draw() {
 
         const a1 = compressedFade(t1);
         const a2 = compressedFade(t2);
-        const cnorm_pow = 0.8
+        const cnorm_pow = 1
         const norm = Math.max(Math.pow(a1, cnorm_pow) + Math.pow(a2, cnorm_pow), 1e-5);
 
         const alpha1 = a1 / norm;
@@ -444,7 +447,7 @@ function draw() {
 
           fill(baseColor);
           noStroke();
-          ellipse(px, py, 3, 3);
+          ellipse(px, py, 2, 2);
         }
       }
 
@@ -571,8 +574,8 @@ function generatePlot() {
             particles = [];
             let maxMag = 0;
             for (let i = 0; i < field.x.length; i++) {
-            const u = field.u[i] * 2;
-            const v = field.v[i] * 2;
+            const u = field.u[i] * 1.5;
+            const v = field.v[i] * 1.5;
             const mag = Math.sqrt(u * u + v * v);
             maxMag = Math.max(maxMag, mag);
 
@@ -596,6 +599,7 @@ function generatePlot() {
             flow_title = `file: ${filename}\nsubspace: (${xcol}, ${ycol})`;
             plotted_xcol = `${xcol} (specified)`
             plotted_ycol = `${ycol} (unspecified)`
+            reset_switch = true;
         });
       },
       error: () => {
