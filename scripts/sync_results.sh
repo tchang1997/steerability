@@ -8,8 +8,9 @@ set -euo pipefail
 : "${AWS_PROFILE:?AWS_PROFILE env var is required}"
 
 # Optional: set default bucket and prefixes
-PREFIX_JSON="./results/json/"
-PREFIX_CSV="./results/csv/"
+# FUTURE: different prefixes by dataset
+PREFIX_JSON="json/"
+PREFIX_CSV="csv/"
 ENDPOINT="https://${ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # Dry run flag
@@ -20,16 +21,20 @@ if [[ "${1:-}" == "--dryrun" ]]; then
 fi
 
 echo "Syncing JSON files to R2..."
-aws s3 sync ./results/steerability_metrics "s3://${R2_BUCKET}/${PREFIX_JSON}" \
+cd results
+aws s3 sync ./steerability_metrics "s3://${R2_BUCKET}/${PREFIX_JSON}" \
   $DRYRUN \
   --profile "$AWS_PROFILE" \
-  --endpoint-url "$ENDPOINT"
+  --endpoint-url "$ENDPOINT" \
+  --checksum-algorithm CRC32
 
 echo "Syncing CSV files to R2..."
-aws s3 sync ./results/judged "s3://${R2_BUCKET}/${PREFIX_CSV}" \
+aws s3 sync ./judged "s3://${R2_BUCKET}/${PREFIX_CSV}" \
   $DRYRUN \
   --profile "$AWS_PROFILE" \
-  --endpoint-url "$ENDPOINT"
+  --endpoint-url "$ENDPOINT" \
+  --checksum-algorithm CRC32
+cd ..
 
 echo "Sync complete."
 

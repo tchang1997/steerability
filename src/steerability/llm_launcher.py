@@ -6,6 +6,7 @@ import time
 
 import openai
 from openai import OpenAI
+from transformers import AutoConfig
 from ruamel.yaml import YAML
 yaml = YAML(typ="safe")
 
@@ -16,6 +17,32 @@ logger = logging.getLogger(__name__)
 
 MAX_VLLM_START_TIMEOUT = 7200
 HEALTH_CHECK_FREQ = 30
+
+def get_max_model_len(config: AutoConfig, max_model_len: int) -> int:
+    # from old version of vLLM
+    possible_keys = [
+        # OPT
+        "max_position_embeddings",
+        # GPT-2
+        "n_positions",
+        # MPT
+        "max_seq_len",
+        # ChatGLM2
+        "seq_length",
+        # Command-R
+        "model_max_length",
+        # Whisper
+        "max_target_positions",
+        # Others
+        "max_sequence_length",
+        "max_seq_length",
+        "seq_len",
+    ]
+    for key in possible_keys:
+        max_len_key = getattr(config, key, None)
+        if max_len_key is not None:
+            max_model_len = min(max_model_len, max_len_key)
+    return max_model_len
 
 def is_local_path(model_name: str) -> bool:
     return Path(model_name).exists()
@@ -45,12 +72,19 @@ def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = Fals
         env["USE_FASTSAFETENSOR"] = "true"
         logger.info(f"Local model path detected. Setting USE_FASTSAFETENSOR='true'.")
 
+    config = AutoConfig.from_pretrained(model_name, cache_dir=os.environ.get("HF_HOME", "~/.cache/huggingface/hub"))
+    derived_max_model_len = get_max_model_len(config, cfg["max_model_len"]) 
+    if derived_max_model_len < cfg["max_model_len"]:
+        logger.warning(f"Maximum context length of {model_name} is {derived_max_model_len} via config.json. "
+            f"Setting --max-model-len to {derived_max_model_len}. This will cause errors downstream if your "
+            f"config file requests completions that exceed the context length.")
+
     port = str(cfg["port"])
     vllm_cmd = [
         "vllm", "serve", model_name,
         "--host", "localhost",
         "--port", port,
-        "--max-model-len", str(cfg["max_model_len"]),
+        "--max-model-len", str(derived_max_model_len),
         "--gpu-memory-utilization", str(cfg["gpu_memory_utilization"]),
         "--dtype", cfg.get("dtype", "auto"),
     ]
@@ -67,6 +101,8 @@ def start_vllm_server(model_name: str, cfg: str, is_judge: Optional[bool] = Fals
         stdout_log = f"logs/{pid}-vllm.out"
         stderr_log = f"logs/{pid}-vllm.err"
     logger.info(f"Logging to: {stdout_log} (STDOUT) {stderr_log} (STDERR)")
+    logger.info(f"Follow logs with: tail -f logs/{pid}-vllm.*")
+
     with open(stdout_log, "w") as out, open(stderr_log, "w") as err:
         proc = subprocess.Popen(vllm_cmd, env=env, stdout=out, stderr=err)
 
@@ -140,6 +176,7 @@ def launch_goalspace_server(uvicorn_cfg: dict):
     stdout_log = f"logs/{pid}-uvicorn.out"
     stderr_log = f"logs/{pid}-uvicorn.err"
     logger.info(f"Logging to: {stdout_log} (STDOUT) {stderr_log} (STDERR)")
+    logger.info(f"Follow logs with: tail -f logs/{pid}-uvicorn.*")
     with open(stdout_log, "w") as out, open(stderr_log, "w") as err:
         proc = subprocess.Popen(command, env=env, stdout=out, stderr=err)
     return proc

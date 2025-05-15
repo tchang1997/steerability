@@ -62,7 +62,12 @@ This repo is very early stage and likely will change without notice. Issues and 
 ## Common issues
 
 **Q:** The script just outputs `Waiting for vLLM to start`. Is that normal?\
-**A:** If you're downloading or using a large model, it can take a while for the download/weight loading to complete. Check the log files (`tail -f logs/[PID]-vllm.*`) for the full logging output, and if it's on a download/weight-loading step, that's the issue. 
+**A:** If you're downloading or using a large model, it can take a while for the download/weight loading to complete. Check the log files (`tail -f logs/[PID]-vllm.*`) for the full logging output, and if it's on a download/weight-loading step, that's the issue.
+
+To confirm that the model is simply loading, you should see something like 
+```
+Loading safetensors checkpoint shards:   0% Completed | 0/## [00:00<?, ?it/s]
+```
 
 **Q:** I'm sure I've downloaded the model and it still won't load after >30 min. -- how can I fix this?\
 **A:** First, check the logs. You might see:
