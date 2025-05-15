@@ -310,8 +310,15 @@
 </head>
 
 <body>
-  <h1 style="font-size: 3rem;">SteerFlow</h1>
-  <p><i>a goal-space flow visualizer</i></p>
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 1em;">
+    <a href="https://steerability.org" style="padding-bottom: 8px;">
+      <img src="./static/steer_logo.png" alt="steerability.org" width="48px" />
+    </a>
+    <h1 style="font-size: 3rem; margin: 0.5em 0; margin-top: 0.2em;">SteerFlow</h1>
+  </div>
+
+
+  <p><i>visualizing how large language models steer through goal-space</i></p>
   <hr>
   <h2>Select model & goal-space</h2>
   <div id="controls" style="
@@ -385,7 +392,7 @@
       max-width: 100%;
       box-shadow: 0 0 5px rgba(0,0,0,0.4);
     ">
-      Waiting for selection.
+        Waiting for selection.
       </div>
       <hr>
       <h3>Controls</h3>
@@ -394,15 +401,25 @@
         margin-bottom: 1rem; padding: 16px; border: 1px solid #f6a192;
         border-radius: 10px; background-color: #181818;">
         <div style="display: flex; flex-direction: row; gap: 1.5rem; align-items: center; margin-top: 0.5em">
-          <label style="margin: 0;">
-            <input type="checkbox" checked id="showSource"> Plot source texts?
-          </label>
           <button id="export-btn" onclick="startGifCapture()" disabled>
             Export to WebM
           </button>
+          <label style="margin: 0;">
+            <input type="checkbox" checked id="showSource"> Plot source texts?
+          </label>
         </div>
 
         <div style="display: flex; gap: 1.5rem; align-items: center; min-height: 56px; margin-bottom: -0.2em">
+          <div id="exportProgressText" style="
+          top: -1.5rem;   /* pull it upward */
+          left: -0.5rem;
+          right: 0;
+          font-size: 0.75rem;
+          font-style: italic;
+          color: #ccc;
+          white-space: nowrap;
+        ">no export in progress
+          </div>
           <div id="exportProgressWrapper" style="
               height: 4px;
               width: 200px;
@@ -418,16 +435,7 @@
                 transition: width 0.2s ease;
               "></div>
           </div>
-          <div id="exportProgressText" style="
-              top: -1.5rem;   /* pull it upward */
-              left: -0.5rem;
-              right: 0;
-              font-size: 0.75rem;
-              font-style: italic;
-              color: #ccc;
-              white-space: nowrap;
-            ">no export in progress
-          </div>
+
           <button id="cancelExportBtn" onclick="cancelExport()" style="visibility: hidden;">Cancel</button>
         </div>
       </div>
