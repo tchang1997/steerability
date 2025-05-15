@@ -372,7 +372,7 @@ function getColorFromStops(normMag, stops) {
 
 
 const FLOW_SPEED = 0.012;
-
+let color_mode = "magnitude";
 function compressedFade(t) {
   const raw = 0.5 * (1 - Math.cos(2 * Math.PI * t));
   return Math.pow(raw, 2);  // steeper falloff
@@ -441,11 +441,11 @@ function draw() {
           const px = map(x, 0, 1, paddingLeft, width - paddingRight);
           const py = map(1 - y, 0, 1, paddingTop, height - paddingBottom);
 
-          if (color_mode == "magnitude") {
-            let idx = Math.floor(p.mag / maxMag * 100);
-          } else { // side-effect
-            let idx = Math.floor(p.mag === 0 ? 0 : Math.abs(p.v / maxMag) * 100); // 100 sin(theta)
-          }
+          //if (color_mode == "magnitude") {
+          let idx = Math.floor(p.mag / maxMag * 100);
+          //} else { // side-effect
+          //  let idx = Math.floor(p.mag === 0 ? 0 : Math.abs(p.v / maxMag) * 100); // 100 sin(theta)
+          //}
           const baseColor = flowColors[idx]
           baseColor.setAlpha(alpha * 255);
 
