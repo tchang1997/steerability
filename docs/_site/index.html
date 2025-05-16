@@ -71,6 +71,60 @@
       max-width: 520px;
       width: 100%;
     }
+
+    #title-box {
+      color: white;
+      font-size: 1.8em;
+      margin: 0 0.5em;
+      text-align: left;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 2rem !important;
+      }
+    }
+
+    .hero-demo {
+      display: inline-block;
+	      margin-top: 1.5rem;
+	      padding: 0.75rem 1.5rem;
+	      background-color: #800000; /* maroon */
+	      color: #fff;
+	      text-decoration: none;
+	      border-radius: 6px;
+	      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+	      transition: background 0.2s ease;
+        padding: 0.75rem 1.0rem;
+    }
+
+    @media (max-width: 600px) {
+      .hero-scrollable {
+        max-height: 80vh;
+      }
+
+      .hero-text {
+        font-size: 12pt !important;
+        margin-top: 2em !important;
+      }
+
+      .hero-demo {
+        font-size: 10pt !important;
+      }
+
+      p {
+        font-size: 10pt !important;
+        line-height: 1.4em;
+      }
+
+      #title-box {
+        font-size: 1.4em !important;
+      }
+    }
+
+    .tutorial-box {
+      margin: 0 12px;
+    }
   </style>
 
 </head>
@@ -81,12 +135,12 @@
     <div class='header', style="height: 64px; background-color: #820931; align-items: center">
   <div class="container" style="justify-content: flex-start">
       <div class="logo">
-        <a href="/"><img width=32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
+        <a href="/"><img width="32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
     </div>
      <div class="logo-mobile">
-         <a href="/"><img width=32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
+         <a href="/"><img width="32px" height="32px" alt="Steerability" src="/images/illustrations/steer_logo.png"/></a>
     </div>
-    <h1 style="color: white; font-size: 1.8em; margin: 0 0.5em; text-align: left"><a href="/" style="color: white; text-decoration: none;">steerability.org</a></h1>
+    <h1 id="title-box"><a href="/" style="color: white; text-decoration: none;">steerability.org</a></h1>
     <div id="main-menu" class="main-menu">
   
 
@@ -98,7 +152,7 @@
 <div class="intro" style="
   position: relative;
   width: 100%;
-  height: 550px;
+  height: 600px;
   background-image: url('/images/illustrations/steer_demo.gif');
   background-size: cover;
   background-position: center;
@@ -118,41 +172,21 @@
   <!-- Content stays on top -->
   <div class="container" style="position: relative; z-index: 1;">
     <div class="row justify-content-start">
-      <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1" style="width: 67%">
+      <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1 col-sm-2 hero-scrollable" style="overflow-y: auto">
         <h1 id="serif---a-jekyll-business-theme" style="color: #f0f0f0; font-family: Playfair Display, serif">
           Steerability: an on-ramp on the road to alignment.
         </h1>
-        <p style="color: #eeeeee; font-family: Arvo, serif">
+        <p style="color: #eeeeee; font-family: Arvo, serif" class="hero-text">
           We've heard the pitch before: LLMs can do Olympiad math, follow complex instructions, and write like Hemingway. Modern LLMs are impressive, but are they really steerable towards user goals?
           <br> <br>
           Learn more here about our open-source evaluation framework for measuring the steerability of LLMs.
         </p>
         <div style="display: flex; gap: 2em; flex-direction: row">
-	<a href="https://github.com/tchang1997/steerability" style="
-	      display: inline-block;
-	      margin-top: 1.5rem;
-	      padding: 0.75rem 1.5rem;
-	      background-color: #800000; /* maroon */
-	      color: #fff;
-	      text-decoration: none;
-	      border-radius: 6px;
-	      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-	      transition: background 0.2s ease;
-	    " onmouseover="this.style.backgroundColor='#a00000'"
+	<a href="https://github.com/tchang1997/steerability" class="hero-demo" onmouseover="this.style.backgroundColor='#a00000'"
 	      onmouseout="this.style.backgroundColor='#800000'">
 	      Get started
 	</a>
-        <a href="https://steerability.onrender.com/" style="
-	      display: inline-block;
-	      margin-top: 1.5rem;
-	      padding: 0.75rem 1.5rem;
-	      background-color: #800000; /* maroon */
-	      color: #fff;
-	      text-decoration: none;
-	      border-radius: 6px;
-	      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-	      transition: background 0.2s ease;
-	    " onmouseover="this.style.backgroundColor='#a00000'"
+        <a href="https://steerability.onrender.com/" class="hero-demo" onmouseover="this.style.backgroundColor='#a00000'"
 	      onmouseout="this.style.backgroundColor='#800000'">
 	      Visualizer (Demo)
 	</a>
@@ -169,7 +203,7 @@
     <div class="row justify-content-center">
 
      <div class="col-12 col-sm-6 col-md-6 col-lg-6 mb-2"> 
-        <div style="border-radius: 8px; padding: 32px 20px" class="feature">
+        <div style="border-radius: 8px; padding: 32px 20px;" class="feature">
           
           <div class="feature-image"><img alt="Github logo" src="/images/social/github-mark.svg" width="80" height="80" /></div>
           
@@ -221,7 +255,7 @@
 </section>-->
 
 <section style="background-color: #fff; padding: 3em 0; max-width: 1200px; margin: 0 auto;">
-    <h1>Quickstart</h1><hr>
+    <h1 style="margin: 0 8px;">Quickstart</h1><hr>
     <div class="install-container">
 <h2>Installation</h2>
 <p>We recommend creating a new virtual environment. We use the <a href="https://docs.astral.sh/uv/">uv</a> package manager to do so. 
@@ -237,11 +271,11 @@ bash initial_setup.sh # makes result directories, downloads auxiliary data</code
 
 <div style="max-width: 1200px; margin: 0 auto; margin-bottom: 2em;">
 
-<h2>Usage</h2>
+<h2 style="margin: 0 8px;">Usage</h2>
 <hr>
   <!-- Step 1 -->
 
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
+  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;" class="tutorial-box">
     <div style="flex: 1 1 300px;">
       <h3>1. Create a configuration file</h3>
       <p>
@@ -269,7 +303,7 @@ save_as: "gemma_3_1b_results"
   </div>
   <hr>
   <!-- Step 2 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
+  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;" class="tutorial-box">
     <div style="flex: 1 1 300px;">
       <h3>2. Run the steerability evaluation script</h3>
       <p>
@@ -284,7 +318,7 @@ save_as: "gemma_3_1b_results"
   </div>
   <hr>
   <!-- Step 3 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;">
+  <div style="display: flex; gap: 3em; flex-wrap: wrap; margin-bottom: 2em;" class="tutorial-box">
     <div style="flex: 1 1 300px;">
       <h3>3. Approve flagged completions (optional but recommended)</h3>
       <p>
@@ -305,7 +339,7 @@ save_as: "gemma_3_1b_results"
   </div>
   <hr>
   <!-- Step 4 -->
-  <div style="display: flex; gap: 3em; flex-wrap: wrap;">
+  <div style="display: flex; gap: 3em; flex-wrap: wrap;" class="tutorial-box">
     <div style="flex: 1 1 300px;">
       <h3>4. View results</h3>
       <p>
@@ -336,7 +370,7 @@ save_as: "gemma_3_1b_results"
     </div>
   </div>
   <hr>
-<div style="display: flex; gap: 3em; flex-wrap: wrap;">
+<div style="display: flex; gap: 3em; flex-wrap: wrap;" class="tutorial-box">
   <div style="flex: 1 1 300px;">
     <h3>5. Visualize how LLMs steer in goal-space (optional but fun!)</h3>
     <p>
