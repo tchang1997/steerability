@@ -139,9 +139,9 @@ def create_app():
         stats = get_json(filename)
         steer_stats = stats["steerability"]
         return jsonify({
-            "steering_error": steer_stats["steering_error"]["raw"],
-            "miscalibration": steer_stats["miscalibration"]["raw"],
-            "orthogonality": steer_stats["orthogonality"]["raw"],
+            "steering_error": steer_stats["steering_error"],
+            "miscalibration": steer_stats["miscalibration"],
+            "orthogonality": steer_stats["orthogonality"],
         })
     
     @app.route("/generate_flow", methods=["POST"])
