@@ -6,7 +6,6 @@ function computeSummary(values) {
   const median = sorted[Math.floor(sorted.length * 0.5)];
   const q3 = sorted[Math.floor(sorted.length * 0.75)];
   const iqr = q3 - q1;
-  const yTop = 1.1 * max;
 
   return {
     min: min.toFixed(3),
@@ -15,7 +14,6 @@ function computeSummary(values) {
     q3: q3.toFixed(3),
     max: max.toFixed(3),
     iqr: iqr.toFixed(3),
-    yTop: yTop
   };
 }
 
@@ -31,7 +29,7 @@ function enhanceFileSelectWithSearch() {
     }
     choicesInstances[itemId] = new Choices(document.getElementById(itemId), {
       searchEnabled: true,
-      shouldSort: false,
+      shouldSort: true,
       itemSelectText: "",
       noChoicesText: 'No choices available',
       position: 'auto',        
@@ -76,6 +74,7 @@ $("#fileSelect").change(function () {
         // Then explicitly set the correct selection per select box
         choicesInstances["xcol"].setChoiceByValue(cols[0]);
         choicesInstances["ycol"].setChoiceByValue(cols[cols.length - 1]);
+
         $("#fileStatusText")
         .text("Done!")
         .addClass("done");
@@ -108,9 +107,9 @@ $("#fileSelect").change(function () {
       contentType: "application/json",
       data: JSON.stringify({ filename: file }),
       success: function (data) {
-        const steerStats = computeSummary(data["steering_error"]);
-        const miscalStats = computeSummary(data["miscalibration"]);
-        const orthoStats = computeSummary(data["orthogonality"]);
+        const steerStats = data["steering_error"]; 
+        const miscalStats = data["miscalibration"];
+        const orthoStats = data["orthogonality"];
 
         const x1Center = 0.125;  // domain: [0, 0.25]
         const x2Center = 0.505;  // domain: [0.38, 0.63]
@@ -120,7 +119,7 @@ $("#fileSelect").change(function () {
         Plotly.newPlot("plotly-container", [
           {
             type: "violin",
-            y: data["steering_error"],
+            y: data["steering_error"].raw,
             name: "Steering Error",
             xaxis: "x1",
             yaxis: "y1",
@@ -133,16 +132,10 @@ $("#fileSelect").change(function () {
             points: true,
             hoverinfo: "text",
             hoveron: "all",
-            hovertemplate:
-            `Min: ${steerStats.min}<br>` +
-            `Q1: ${steerStats.q1}<br>` +
-            `Median: ${steerStats.median}<br>` +
-            `Q3: ${steerStats.q3}<br>` +
-            `Max: ${steerStats.max}<extra></extra>` 
           },
           {
             type: "violin",
-            y: data["miscalibration"],
+            y: data["miscalibration"].raw,
             name: "Miscalibration",
             xaxis: "x2",
             yaxis: "y2",
@@ -155,16 +148,10 @@ $("#fileSelect").change(function () {
             points: true,
             hoverinfo: "text",
             hoveron: "all",
-            hovertemplate:
-            `Min: ${miscalStats.min}<br>` +
-            `Q1: ${miscalStats.q1}<br>` +
-            `Median: ${miscalStats.median}<br>` +
-            `Q3: ${miscalStats.q3}<br>` +
-            `Max: ${miscalStats.max}<extra></extra>`
           },
           {
             type: "violin",
-            y: data["orthogonality"],
+            y: data["orthogonality"].raw,
             name: "Orthogonality",
             xaxis: "x3",
             yaxis: "y3",
@@ -177,18 +164,12 @@ $("#fileSelect").change(function () {
             points: true,
             hoverinfo: "text",
             hoveron: "all",
-            hovertemplate:
-            `Min: ${orthoStats.min}<br>` +
-            `Q1: ${orthoStats.q1}<br>` +
-            `Median: ${orthoStats.median}<br>` +
-            `Q3: ${orthoStats.q3}<br>` +
-            `Max: ${orthoStats.max}<extra></extra>`
           },
           {
             type: "scatter",
             x: ["Steering Error"],
-            y: [steerStats.yTop],
-            text: [`${steerStats.median}<br>(${steerStats.iqr})`],
+            y: [steerStats.max * 1.1],
+            text: [`${steerStats.median.toFixed(3)}<br>(${steerStats.iqr.toFixed(3)})`],
             mode: "text",
             textposition: "top center",
             textfont: {
@@ -204,8 +185,8 @@ $("#fileSelect").change(function () {
           {
             type: "scatter",
             x: ["Miscalibration"],
-            y: [miscalStats.yTop],
-            text: [`${miscalStats.median}<br>(${miscalStats.iqr})`],
+            y: [miscalStats.max * 1.1],
+            text: [`${miscalStats.median.toFixed(3)}<br>(${miscalStats.iqr.toFixed(3)})`],
             mode: "text",
             textposition: "top center",
             textfont: {
@@ -221,8 +202,8 @@ $("#fileSelect").change(function () {
           {
             type: "scatter",
             x: ["Orthogonality"],
-            y: [orthoStats.yTop],
-            text: [`${orthoStats.median}<br>(${orthoStats.iqr})`],
+            y: [orthoStats.max * 1.1],
+            text: [`${orthoStats.median.toFixed(3)}<br>(${orthoStats.iqr.toFixed(3)})`],
             mode: "text",
             textposition: "top center",
             textfont: {
@@ -238,9 +219,9 @@ $("#fileSelect").change(function () {
           
         ], {
           grid: { rows: 1, columns: 3, pattern: "independent" },
-          yaxis: { title: "Steering Error", gridcolor: "#333", range: [0, steerStats.yTop * 1.2]},
-          yaxis2: { title: "Miscalibration", gridcolor: "#333", range: [0, miscalStats.yTop * 1.2] },
-          yaxis3: { title: "Orthogonality", gridcolor: "#333", range: [0, orthoStats.yTop * 1.2] },
+          yaxis: { title: "Steering Error", gridcolor: "#333", range: [0, steerStats.max * 1.3]},
+          yaxis2: { title: "Miscalibration", gridcolor: "#333", range: [0, miscalStats.max * 1.3] },
+          yaxis3: { title: "Orthogonality", gridcolor: "#333", range: [0, orthoStats.max * 1.3] },
           xaxis: { domain: [0, 0.25], showticklabels: false, type: "category"},
           xaxis2: { domain: [0.38, 0.63], showticklabels: false, type: "category" },
           xaxis3: { domain: [0.76, 1], showticklabels: false, type: "category" },
@@ -347,10 +328,10 @@ function setup() {
   //【Ｉ　<３　ＶＡＰＯＲＷＡＶＥ】
   const stops = [  
     { stop: 0.0, color: lerpColor(color("#00D5F8"), color("#000000"), 0.2)}, // Faded sea-cyan
-    { stop: 0.05, color: lerpColor(color("#11B4F5"), color("#000000"), 0.0)}, // Cerulean
+    { stop: 0.1, color: lerpColor(color("#11B4F5"), color("#000000"), 0.0)}, // Cerulean
     { stop: 0.2, color: "#4605EC" }, // Indigo
-    { stop: 0.4, color: "#8705E4" }, // Purple
-    { stop: 0.7, color: "#FF06C1" }, // Hot Pink
+    { stop: 0.3, color: "#8705E4" }, // Purple
+    { stop: 0.6, color: "#FF06C1" }, // Hot Pink
     { stop: 1.0, color: "#FF0845" }  // Red-ish Pink
   ];
 
