@@ -465,16 +465,27 @@
       <details class="details-box" style="margin-top: 1em; font-size: 0.9em;">
         <summary>What does this diagram show?</summary>
         <p style="margin-top: 1em; line-height: 1.2lh">
-          Imagine a "goal-space" made of multiple dimensions, where each dimension is an attribute of text
-          like reading level or length. Users might ask LLMs to <i>steer</i> in goal-space, asking for things
-          like "make this writing simpler" or "make it longer."<br><br>
-          This flow diagram shows how LLM outputs shift in goal-space when try to steer them along specific goal
-          dimensions. The x-axis represents the attribute we asked the model to change, while the y-axis
-          shows how much an unintended attribute changed as a side effect. Arrows trace the average movement
-          in this 2D space. The colors encode velocity, transitioning from <i style="color: #00D5F8">cooler</i> to
-          <i style="color: #FF0845">warmer</i> colors as speed increases. Ideally, vectors point mostly along the
-          x-axis,
-          indicating clean, disentangled control along goal dimensions.
+          This vector flow diagram visualizes how language model outputs shift in goal-space: a space defined 
+          by measurable dimensions of text such as reading level, formality, and more. 
+          <br><br>
+          More specifically, imagine a text-rewriting request: 
+          <ul>
+            <li><i>"Make this more formal, but don't make it any longer"</li></i>
+            <li><i>"Make this a little easier to read"</li></i>
+          </ul>
+          Imagine these requests as "vectors" along the "formality" or "reading difficulty" dimensions,
+          respectively. We gave an LLM multiple prompts similar to those shown above, and some texts to rewrite 
+          (white circles).
+          <br><br>
+          The LLM's output also lives in goal-space: it satisfies some desired level of formality or reading difficulty,
+          which also "traces" out a vector. 
+          <br><br>
+          Interpolating a bunch of these vectors gets us a flow diagram. We plot vectors where we ask for changes in
+          the x-axis, but not the y-axis. Arrow direction indicates how the model's behavior changed, and the color 
+          shows the magnitude of change (from <i style="color: #00D5F8">not a lot</i> to 
+          <i style="color: #FF0845">a lot</i>). 
+          Ideally, the vectors are short (mostly <i style="color: #00D5F8">cool</i> colors) or point along the x-axis, 
+          reflecting that the model generally moves in the direction that we asked for. 
           <br><br>
           Learn more about how we measure steerability in our <a style="color: #f6a192" href="">paper</a>!
         </p>
@@ -520,7 +531,16 @@
         <summary>What are these metrics?</summary>
         <p style="margin-top: 1em; line-height: 1.2lh">
           This plot shows the three steerability metrics proposed in our
-          <a style="color: #f6a192" href="">steerability measurement framework</a>:
+          <a style="color: #f6a192" href="">steerability measurement framework</a>. In summary,
+          we propose a modeling user requests as multi-dimensional vectors in goal-space, and measuring 
+          steerability in terms of goal-space "distance."<br><br>
+    
+          For example, in text-rewriting tasks, we often
+          ask for changes in multiple <i>dimensions</i> of text (e.g., "make this longer, but simplify the language").
+          When we ask an LLM to rewrite text in these ways, the model's output also changes text in multiple dimensions.
+          <br><br>
+          To evaluate performance, we need to take into account changes in all of these dimensions. In our work,
+          we motivated three main steerability metrics. Informally:
         <ul>
           <li><strong style="color: #ffff99; opacity: 0.8">Steering error (yellow):</strong> how far outputs deviate
             from the target,</li>
@@ -531,7 +551,10 @@
         </ul>
         <i>Lower</i> values are better across all three (minimum: 0). The box and violin shapes show distributional
         spread across our steerability probe (see panel), and the numbers on top indicate the median and interquartile
-        range (IQR; 75th - 25th percentile).</p>
+        range (IQR; 75th - 25th percentile).<br><br>
+        For a more formal definition of these metrics, how they're motivated, and why they differ from how we
+        evaluate LLM performance currently, check out our <a style="color: #f6a192" href="">paper</a>!
+      </p>
       </details>
 
     </div>
