@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 import os
 import pandas as pd
+from pathlib import Path
 
 from steerability.utils.result_utils import STEERING_GOALS, print_steerability_summary
 from steerflow.plotting_utils import grab_subspace, export_vector_field
@@ -82,7 +83,14 @@ def get_json(filename: str):
         obj = get_cached_object(key)
         steer_stats = json.loads(obj.decode("utf-8"))
     else:
-        json_path = os.path.join(JSON_DIR, json_filename.replace(".csv", ".json"))
+        user_path = json_filename.replace(".csv", ".json")
+        base = Path(JSON_DIR).resolve()
+        target = (base / user_path).resolve()
+
+        if not str(target).startswith(str(base)):
+            raise ValueError(f"Unsafe path detected: {user_path}")
+        json_path = os.path.join(base, user_path)
+
         logger.info(f"Reading result JSON from local: {json_path}")
         with open(json_path) as f:
             steer_stats = json.load(f)
