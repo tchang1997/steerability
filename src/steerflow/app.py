@@ -149,12 +149,13 @@ def create_app():
         data = request.json
         filename = data["filename"]
         xcol, ycol = data["xcol"], data["ycol"]
+        steering_goals = data["steering_goals"]
 
         logger.info(f"Reading steerability probe results from {filename}")
         df = get_df(filename)
 
         logger.info(f"Grabbing subspace: ({xcol}, {ycol})")
-        subspace = grab_subspace(df, xcol, ycol, steering_goals=STEERING_GOALS)
+        subspace = grab_subspace(df, xcol, ycol, steering_goals=steering_goals)
 
         output_path = os.path.join(STATIC_DIR, "_field.json")
         logger.info(f"Exporting vector field to {output_path}")

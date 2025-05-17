@@ -317,7 +317,7 @@ let canvasElt;
 function setup() {
   textFont('Courier New');
 
-  const canvas = createCanvas(600, 630); 
+  const canvas = createCanvas(650, 733); 
   canvas.parent("flow-canvas");
   canvasElt = canvas.elt;
   frameRate(60);
@@ -547,11 +547,12 @@ function generatePlot() {
     }
   
     showStatus("Generating flow...");
+    let steering_goals = choicesInstances["xcol"]._store.activeChoices.map(c => c.value);
 
     $.post({
       url: "/generate_flow",
       contentType: "application/json",
-      data: JSON.stringify({ xcol, ycol, filename }),
+      data: JSON.stringify({ xcol, ycol, filename, steering_goals}),
       success: () => {
         fieldLoaded = false;
         loadJSON("/static/_field.json", f => {

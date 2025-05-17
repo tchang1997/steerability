@@ -41,6 +41,11 @@
       font-family: 'Playfair Display', serif;
     }
 
+    ul {
+      margin: 0;
+      padding-bottom: 1em;
+    }
+
     label,
     select,
     input,
@@ -219,7 +224,7 @@
       margin-top: 1em;
       font-size: 0.9em;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-      max-width: 570px;
+      max-width: 620px;
     }
 
     details[open] summary::after {
@@ -350,7 +355,7 @@
       <div style="display: flex; flex-direction: row; align-items: flex-start;">
         <label>Choose file:
           <select id="fileSelect" class="dark-select">
-            <option value="" selected disabled hidden>-- choose file --</option>
+            <option value="" selected disabled hidden>-- choose model --</option>
             {% for f in files %}
             <option value="{{ f }}">{{ f }}</option>
             {% endfor %}
@@ -385,13 +390,15 @@
 
     </div>
   </div>
+  <i style="font-size: 10pt">Don't see your favorite model? Request it <a style="color: #f6a192" href="https://github.com/tchang1997/steerability/issues">here!</a></i>
+
   <hr>
 
 
 
 
   <!-- Row 2: Dashboard -->
-  <div style="display: flex; align-items: flex-start; gap: 6rem; padding-bottom: 1em;">
+  <div style="display: flex; align-items: flex-start; gap: 4rem; padding-bottom: 1em;">
     <!--Column 1: Visualizer-->
     <div id="flow-column">
       <h2>Goal-space flow visualizer</h2>
@@ -561,7 +568,7 @@
   </div>
 
 
-  <hr>
+  <hr style="margin-bottom: 12px">
   <footer class="footer">
     <div class="footer-content" style="font-size: 10pt;">
       <div class="footer-links">
